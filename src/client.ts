@@ -1,0 +1,1653 @@
+import {
+  BisibilityApiError,
+  BisibilityConfigurationError,
+  BisibilityNetworkError,
+  BisibilityResponseError,
+} from "./errors.js";
+import { iterateCursorPagination } from "./pagination.js";
+import type {
+  AddCompetitorInput,
+  AlertRule,
+  ApiKey,
+  BisibilityClientConfig,
+  Capability,
+  CloudImportChunkResponse,
+  CloudImportCompatibility,
+  CloudImportFinalizeResponse,
+  CloudImportPackage,
+  CloudImportSessionCreate,
+  CloudImportSessionCreateResponse,
+  CloudImportUploadChunk,
+  Competitor,
+  CompetitorListResponse,
+  ConnectProviderInput,
+  CostEstimate,
+  CreateAlertRuleInput,
+  CreateKeywordsInput,
+  CreateKeywordsResponse,
+  CreateMyTokenInput,
+  CreateProjectInput,
+  CreateSavedViewInput,
+  CreateSignalInput,
+  CreateTeamInviteInput,
+  CreateWebhookInput,
+  CreatedApiKey,
+  CreatedPersonalAccessToken,
+  CreatedTeamInvite,
+  DataResponse,
+  DeleteAlertRuleResponse,
+  DeleteSavedViewResponse,
+  ExportRankHistoryCsvOptions,
+  ExportRankHistoryJsonOptions,
+  FetchLike,
+  GetCostEstimateOptions,
+  GetKeywordMetricsInput,
+  HealthResponse,
+  IssuedMigrationToken,
+  Keyword,
+  KeywordBulkInput,
+  KeywordBulkResponse,
+  KeywordMetricsResponse,
+  KeywordResearchResponse,
+  ListKeywordsOptions,
+  ListRankChecksOptions,
+  ListRankedKeywordSuggestionsOptions,
+  ListResponse,
+  ListSearchPerformanceQueryStatsOptions,
+  ListSignalsOptions,
+  ListTrafficSnapshotsOptions,
+  LocationSuggestionsResponse,
+  Me,
+  MigrationTokenListResponse,
+  MintMigrationTokenInput,
+  NotificationPreferences,
+  OpenApiDocument,
+  PageTrafficSnapshotsResponse,
+  PaginationOptions,
+  PersonalAccessToken,
+  ProblemDetails,
+  Project,
+  ProjectDefaults,
+  ProjectDefaultsPatch,
+  Provider,
+  ProviderConnection,
+  ProviderDisconnectResponse,
+  ProviderRate,
+  ProviderSettingsInput,
+  ProviderTestResult,
+  RankCheck,
+  RankHistoryExportResponse,
+  RankedKeywordSuggestionsResponse,
+  RemoveCompetitorResponse,
+  RequestOptions,
+  ResearchKeywordsOptions,
+  RevokedMigrationToken,
+  RevokedTeamInvite,
+  RunRankCheckInput,
+  RunRankCheckOptions,
+  SavedView,
+  SearchLocationsOptions,
+  SearchPerformanceQueryStatsResponse,
+  Signal,
+  SitemapMonitor,
+  SitemapMonitorListResponse,
+  TeamInvite,
+  TeamInviteResendResult,
+  TeamMember,
+  TeamMemberMutationResult,
+  TeamMemberRoleResult,
+  TestProviderConnectionInput,
+  TrafficSyncSummary,
+  TriggeredAlert,
+  TriggeredAlertMuteResult,
+  TriggeredAlertsReadResult,
+  UpdateAlertRuleInput,
+  UpdateKeywordInput,
+  UpdateMeInput,
+  UpdateNotificationPreferencesInput,
+  UpdateProjectInput,
+  UpdateSitemapMonitorInput,
+  UpdateTeamMemberRoleInput,
+  UpdateWebhookInput,
+  UploadCloudImportChunkOptions,
+  Webhook,
+} from "./types.js";
+import { SDK_VERSION } from "./version.js";
+
+const DEFAULT_BASE_URL = "https://bisibility.com/api/v1";
+const DEFAULT_MAX_RETRIES = 2;
+const DEFAULT_TIMEOUT = 30_000;
+const CLIENT_ID = `bisibility-sdk-ts/${SDK_VERSION}`;
+const RELATIVE_BASE_ORIGIN = "https://bisibility.local";
+const IDEMPOTENT_METHODS = new Set(["DELETE", "GET", "HEAD", "PUT"]);
+
+type QueryScalar = boolean | Date | number | string | null | undefined;
+type QueryValue = QueryScalar | readonly QueryScalar[];
+type QueryParams = Record<string, QueryValue>;
+
+interface InternalRequestOptions extends RequestOptions {
+  auth?: boolean;
+  body?: unknown;
+  parseAs?: "json" | "text";
+  query?: QueryParams;
+}
+
+function isAbsoluteUrl(value: string) {
+  return /^[a-z][a-z\d+\-.]*:/i.test(value);
+}
+
+function normalizeBaseUrl(baseUrl: string | URL | undefined) {
+  const raw = String(baseUrl ?? DEFAULT_BASE_URL).trim();
+  if (!raw) {
+    throw new BisibilityConfigurationError("baseUrl cannot be empty.");
+  }
+
+  let end = raw.length;
+  while (end > 0 && raw[end - 1] === "/") {
+    end -= 1;
+  }
+  return raw.slice(0, end);
+}
+
+function encodedPathSegment(value: string) {
+  return encodeURIComponent(value);
+}
+
+function queryValue(value: QueryScalar) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return value === null || value === undefined ? undefined : String(value);
+}
+
+function bodyOrUndefined(input: unknown) {
+  return input && typeof input === "object" && Object.keys(input).length > 0 ? input : undefined;
+}
+
+function stringOrUndefined(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function numberOrUndefined(value: unknown) {
+  return typeof value === "number" ? value : undefined;
+}
+
+function problemFromJson(value: unknown): ProblemDetails | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  // Accept any RFC 9457 problem body. Some server responses (for example the
+  // idempotency in-progress 409) omit docs_url and instance, so only the
+  // identifying members are required.
+  const candidate = value as Record<string, unknown>;
+  const type = stringOrUndefined(candidate.type);
+  const title = stringOrUndefined(candidate.title);
+  const status = numberOrUndefined(candidate.status);
+  if (type === undefined && (title === undefined || status === undefined)) {
+    return undefined;
+  }
+
+  // Normalize known members to their expected types, dropping mismatched
+  // values instead of passing the raw object through.
+  const problem: Record<string, unknown> = { ...candidate };
+  const normalized: Record<string, number | string | undefined> = {
+    detail: stringOrUndefined(candidate.detail),
+    docs_url: stringOrUndefined(candidate.docs_url),
+    instance: stringOrUndefined(candidate.instance),
+    status,
+    title,
+    type,
+  };
+  for (const [key, value] of Object.entries(normalized)) {
+    if (value === undefined) {
+      delete problem[key];
+    } else {
+      problem[key] = value;
+    }
+  }
+
+  return problem as ProblemDetails;
+}
+
+function composedSignal(signal: AbortSignal | undefined, timeout: number | null | undefined) {
+  if (timeout === null || timeout === undefined) {
+    return signal;
+  }
+
+  if (!Number.isFinite(timeout) || timeout <= 0) {
+    throw new BisibilityConfigurationError("timeout must be a positive finite number.");
+  }
+  if (typeof AbortSignal.timeout !== "function") {
+    throw new BisibilityConfigurationError(
+      "AbortSignal.timeout is not available in this runtime; omit timeout or use signal instead.",
+    );
+  }
+
+  const timeoutSignal = AbortSignal.timeout(timeout);
+  if (!signal) {
+    return timeoutSignal;
+  }
+
+  const controller = new AbortController();
+  for (const source of [signal, timeoutSignal]) {
+    if (source.aborted) {
+      controller.abort(source.reason);
+      break;
+    }
+    source.addEventListener("abort", () => controller.abort(source.reason), { once: true });
+  }
+
+  return controller.signal;
+}
+
+function validatedMaxRetries(value: number | undefined) {
+  const maxRetries = value ?? DEFAULT_MAX_RETRIES;
+  if (!Number.isInteger(maxRetries) || maxRetries < 0) {
+    throw new BisibilityConfigurationError("maxRetries must be a non-negative integer.");
+  }
+  return maxRetries;
+}
+
+function validatedTimeout(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new BisibilityConfigurationError("timeout must be a positive finite number or null.");
+  }
+  return value;
+}
+
+function retryBackoffMs(attempt: number) {
+  return Math.min(500 * 2 ** attempt, 8_000);
+}
+
+function sleep(milliseconds: number, signal: AbortSignal | undefined) {
+  if (signal?.aborted) {
+    return Promise.reject(signal.reason);
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+async function sleepForRetry(
+  milliseconds: number,
+  signal: AbortSignal | undefined,
+  method: string,
+  url: string,
+) {
+  try {
+    await sleep(milliseconds, signal);
+  } catch (cause) {
+    throw new BisibilityNetworkError("Network error while calling the Bisibility API.", {
+      cause,
+      method,
+      url,
+    });
+  }
+}
+
+function mergeHeaders(first?: HeadersInit, second?: HeadersInit) {
+  const headers = new Headers(first);
+  if (second) {
+    for (const [key, value] of new Headers(second)) {
+      headers.set(key, value);
+    }
+  }
+
+  return headers;
+}
+
+export class BisibilityClient {
+  readonly #apiKey: string | undefined;
+  readonly #defaultHeaders: HeadersInit | undefined;
+  readonly #fetchImpl: FetchLike | undefined;
+  readonly #maxRetries: number;
+  readonly #projectId: string | undefined;
+  readonly #timeout: number | null | undefined;
+  readonly baseUrl: string;
+
+  constructor(config: BisibilityClientConfig = {}) {
+    this.#apiKey = config.apiKey;
+    this.baseUrl = normalizeBaseUrl(config.baseUrl);
+    this.#defaultHeaders = config.headers;
+    this.#fetchImpl = config.fetch;
+    this.#maxRetries = validatedMaxRetries(config.maxRetries);
+    this.#projectId = config.projectId;
+    this.#timeout = validatedTimeout(config.timeout);
+  }
+
+  getHealth(options?: RequestOptions) {
+    return this.request<HealthResponse>("GET", "/health", { ...options, auth: false });
+  }
+
+  getOpenApi(options?: RequestOptions) {
+    return this.request<OpenApiDocument>("GET", "/openapi.json", { ...options, auth: false });
+  }
+
+  getCapabilities(options?: RequestOptions) {
+    return this.request<DataResponse<Capability[]>>("GET", "/capabilities", {
+      ...options,
+      auth: false,
+    });
+  }
+
+  getLlmsText(options?: RequestOptions) {
+    return this.request<string>("GET", "/llms.txt", {
+      ...options,
+      auth: false,
+      parseAs: "text",
+    });
+  }
+
+  getProviderRates(options?: RequestOptions) {
+    return this.request<DataResponse<ProviderRate[]>>("GET", "/provider-rates", {
+      ...options,
+      auth: false,
+    });
+  }
+
+  getCostEstimate(input: GetCostEstimateOptions, options?: RequestOptions) {
+    return this.request<DataResponse<CostEstimate>>("GET", "/cost-estimate", {
+      ...options,
+      auth: false,
+      query: {
+        devices: input.devices,
+        frequency: input.frequency,
+        keywords: input.keywords,
+        locations: input.locations,
+        option: input.option,
+        plan: input.plan,
+        provider: input.provider,
+      },
+    });
+  }
+
+  searchLocations(input: SearchLocationsOptions, options?: RequestOptions) {
+    return this.request<LocationSuggestionsResponse>("GET", "/locations/search", {
+      ...options,
+      query: {
+        country: input.country,
+        limit: input.limit,
+        q: input.q,
+      },
+    });
+  }
+
+  getMe(options?: RequestOptions) {
+    return this.request<Me>("GET", "/me", options);
+  }
+
+  updateMe(input: UpdateMeInput, options?: RequestOptions) {
+    return this.request<Me>("PATCH", "/me", { ...options, body: input });
+  }
+
+  listMyTokens(options?: RequestOptions) {
+    return this.request<ListResponse<PersonalAccessToken>>("GET", "/me/tokens", options);
+  }
+
+  createMyToken(input: CreateMyTokenInput, options?: RequestOptions) {
+    return this.request<CreatedPersonalAccessToken>("POST", "/me/tokens", {
+      ...options,
+      body: input,
+    });
+  }
+
+  revokeMyToken(tokenId: string, options?: RequestOptions) {
+    return this.request<PersonalAccessToken>(
+      "DELETE",
+      `/me/tokens/${encodedPathSegment(tokenId)}`,
+      options,
+    );
+  }
+
+  listProjects(options?: RequestOptions) {
+    return this.request<ListResponse<Project>>("GET", "/projects", options);
+  }
+
+  createProject(input: CreateProjectInput, options?: RequestOptions) {
+    return this.request<Project>("POST", "/projects", {
+      ...options,
+      body: input,
+    });
+  }
+
+  getProject(projectId: string, options?: RequestOptions) {
+    return this.request<Project>("GET", `/projects/${encodedPathSegment(projectId)}`, options);
+  }
+
+  updateProject(projectId: string, input: UpdateProjectInput, options?: RequestOptions) {
+    return this.request<Project>("PATCH", `/projects/${encodedPathSegment(projectId)}`, {
+      ...options,
+      body: input,
+    });
+  }
+
+  deleteProject(projectId: string, options?: RequestOptions) {
+    return this.request<Project>("DELETE", `/projects/${encodedPathSegment(projectId)}`, options);
+  }
+
+  updateProjectDefaults(projectId: string, input: ProjectDefaultsPatch, options?: RequestOptions) {
+    return this.request<ProjectDefaults>(
+      "PATCH",
+      `/projects/${encodedPathSegment(projectId)}/defaults`,
+      { ...options, body: input },
+    );
+  }
+
+  listApiKeys(options?: PaginationOptions, requestOptions?: RequestOptions) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<ApiKey>>("GET", "/api-keys", {
+      ...requestOptions,
+      query: {
+        cursor: pagination.cursor,
+        limit: pagination.limit,
+      },
+    });
+  }
+
+  iterateApiKeys(options: PaginationOptions = {}, requestOptions?: RequestOptions) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listApiKeys(pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  createApiKey(input: { name: string }, options?: RequestOptions) {
+    return this.request<CreatedApiKey>("POST", "/api-keys", { ...options, body: input });
+  }
+
+  revokeApiKey(keyId: string, options?: RequestOptions) {
+    return this.request<ApiKey>("DELETE", `/api-keys/${encodedPathSegment(keyId)}`, options);
+  }
+
+  listProjectApiKeys(
+    projectId: string,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<ApiKey>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/api-keys`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateProjectApiKeys(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listProjectApiKeys(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  createProjectApiKey(projectId: string, input: { name: string }, options?: RequestOptions) {
+    return this.request<CreatedApiKey>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/api-keys`,
+      { ...options, body: input },
+    );
+  }
+
+  listWebhooks(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<Webhook>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/webhooks`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateWebhooks(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listWebhooks(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  createWebhook(projectId: string, input: CreateWebhookInput, options?: RequestOptions) {
+    return this.request<Webhook>("POST", `/projects/${encodedPathSegment(projectId)}/webhooks`, {
+      ...options,
+      body: input,
+    });
+  }
+
+  updateWebhook(
+    projectId: string,
+    webhookId: string,
+    input: UpdateWebhookInput,
+    options?: RequestOptions,
+  ) {
+    return this.request<Webhook>(
+      "PATCH",
+      `/projects/${encodedPathSegment(projectId)}/webhooks/${encodedPathSegment(webhookId)}`,
+      { ...options, body: input },
+    );
+  }
+
+  deleteWebhook(projectId: string, webhookId: string, options?: RequestOptions) {
+    return this.request<Webhook>(
+      "DELETE",
+      `/projects/${encodedPathSegment(projectId)}/webhooks/${encodedPathSegment(webhookId)}`,
+      options,
+    );
+  }
+
+  listKeywords(projectId: string, options?: ListKeywordsOptions, requestOptions?: RequestOptions) {
+    const filters = options ?? {};
+
+    return this.request<ListResponse<Keyword>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/keywords`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: filters.cursor,
+          "filter[country]": filters.country,
+          "filter[device]": filters.device,
+          "filter[intent]": filters.intent,
+          "filter[position_gt]": filters.positionGt,
+          "filter[position_lt]": filters.positionLt,
+          "filter[tag]": filters.tag,
+          "filter[topic]": filters.topic,
+          limit: filters.limit,
+          search: filters.search,
+          sort: filters.sort,
+        },
+      },
+    );
+  }
+
+  iterateKeywords(
+    projectId: string,
+    options: ListKeywordsOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listKeywords(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  addKeywords(projectId: string, input: CreateKeywordsInput, options?: RequestOptions) {
+    return this.request<CreateKeywordsResponse>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/keywords`,
+      { ...options, body: input },
+    );
+  }
+
+  getKeyword(keywordId: string, options?: RequestOptions) {
+    return this.request<Keyword>("GET", `/keywords/${encodedPathSegment(keywordId)}`, options);
+  }
+
+  updateKeyword(keywordId: string, input: UpdateKeywordInput, options?: RequestOptions) {
+    return this.request<Keyword>("PATCH", `/keywords/${encodedPathSegment(keywordId)}`, {
+      ...options,
+      body: input,
+    });
+  }
+
+  setKeywordTargetUrl(keywordId: string, targetUrl: string | null, options?: RequestOptions) {
+    return this.updateKeyword(keywordId, { target_url: targetUrl }, options);
+  }
+
+  deleteKeyword(keywordId: string, options?: RequestOptions) {
+    return this.requestOrUndefined<Keyword>(
+      "DELETE",
+      `/keywords/${encodedPathSegment(keywordId)}`,
+      options,
+    );
+  }
+
+  bulkUpdateKeywords(input: KeywordBulkInput, options?: RequestOptions) {
+    return this.request<KeywordBulkResponse>("POST", "/keywords/bulk", { ...options, body: input });
+  }
+
+  listRankedKeywordSuggestions(
+    projectId: string,
+    options?: ListRankedKeywordSuggestionsOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    const filters = options ?? {};
+
+    return this.request<RankedKeywordSuggestionsResponse>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/ranked-keyword-suggestions`,
+      {
+        ...requestOptions,
+        query: {
+          connection_id: filters.connectionId,
+          fresh: filters.fresh,
+          limit: filters.limit,
+          offset: filters.offset,
+        },
+      },
+    );
+  }
+
+  /**
+   * Research keywords from one seed. This operation requires API write scope because a cache
+   * miss can spend the project's provider budget. Use `estimateOnly` for a free dry run.
+   */
+  researchKeywords(
+    projectId: string,
+    options: ResearchKeywordsOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<KeywordResearchResponse>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/keyword-research`,
+      {
+        ...requestOptions,
+        query: {
+          connection_id: options.connectionId,
+          estimate_only: options.estimateOnly,
+          fresh: options.fresh,
+          include_clickstream: options.includeClickstream,
+          max_cost_cents: options.maxCostCents,
+          mode: options.mode,
+          result_limit: options.resultLimit,
+          seed: options.seed,
+        },
+      },
+    );
+  }
+
+  /**
+   * Hydrate keyword metrics. This operation requires API write scope because cache misses can
+   * spend the project's provider budget. Use `estimate_only` for a free dry run.
+   */
+  getKeywordMetrics(projectId: string, input: GetKeywordMetricsInput, options?: RequestOptions) {
+    return this.request<KeywordMetricsResponse>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/keyword-metrics`,
+      { ...options, body: input },
+    );
+  }
+
+  exportRankHistory(
+    projectId: string,
+    options: ExportRankHistoryCsvOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<string>;
+  exportRankHistory(
+    projectId: string,
+    options?: ExportRankHistoryJsonOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<RankHistoryExportResponse>;
+  exportRankHistory(
+    projectId: string,
+    options: ExportRankHistoryCsvOptions | ExportRankHistoryJsonOptions = {},
+    requestOptions?: RequestOptions,
+  ): Promise<RankHistoryExportResponse | string> {
+    return this.request<RankHistoryExportResponse | string>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/exports/rank-history`,
+      {
+        ...requestOptions,
+        parseAs: options.format === "csv" ? "text" : "json",
+        query: {
+          cursor: "cursor" in options ? options.cursor : undefined,
+          format: options.format,
+          granularity: options.granularity,
+          keyword_id: options.keywordIds,
+          limit: "limit" in options ? options.limit : undefined,
+          range: options.range,
+        },
+      },
+    );
+  }
+
+  iterateRankHistoryExport(
+    projectId: string,
+    options: ExportRankHistoryJsonOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) =>
+        this.exportRankHistory(
+          projectId,
+          { ...options, ...pageOptions, format: "json" },
+          requestOptions,
+        ),
+      options,
+    );
+  }
+
+  listSitemapMonitors(projectId: string, options?: RequestOptions) {
+    return this.request<SitemapMonitorListResponse>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/sitemap-monitors`,
+      options,
+    );
+  }
+
+  updateSitemapMonitor(
+    projectId: string,
+    monitorId: string,
+    input: UpdateSitemapMonitorInput,
+    options?: RequestOptions,
+  ) {
+    return this.request<SitemapMonitor>(
+      "PATCH",
+      `/projects/${encodedPathSegment(projectId)}/sitemap-monitors/${encodedPathSegment(monitorId)}`,
+      { ...options, body: input },
+    );
+  }
+
+  listRankChecks(
+    keywordId: string,
+    options?: ListRankChecksOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    const filters = options ?? {};
+
+    return this.request<ListResponse<RankCheck>>(
+      "GET",
+      `/keywords/${encodedPathSegment(keywordId)}/rank-checks`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: filters.cursor,
+          limit: filters.limit,
+          since: filters.since,
+          status: filters.status,
+          until: filters.until,
+        },
+      },
+    );
+  }
+
+  iterateRankChecks(
+    keywordId: string,
+    options: ListRankChecksOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listRankChecks(keywordId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  runRankCheck(keywordId: string, input?: RunRankCheckInput, options?: RunRankCheckOptions) {
+    const { async: runAsync, ...requestOptions } = options ?? {};
+    const body = input && Object.keys(input).length ? input : undefined;
+
+    return this.request<RankCheck>("POST", `/keywords/${encodedPathSegment(keywordId)}/checks`, {
+      ...requestOptions,
+      body,
+      ...(runAsync ? { query: { async: "true" } } : {}),
+    });
+  }
+
+  getRankCheckResult(checkId: string, options?: RequestOptions) {
+    return this.request<RankCheck>("GET", `/rank-checks/${encodedPathSegment(checkId)}`, options);
+  }
+
+  createSignal(input: CreateSignalInput, options?: RequestOptions) {
+    return this.request<Signal>("POST", "/signals", { ...options, body: input });
+  }
+
+  listSignals(projectId: string, options?: ListSignalsOptions, requestOptions?: RequestOptions) {
+    const filters = options ?? {};
+
+    return this.request<ListResponse<Signal>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/signals`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: filters.cursor,
+          from: filters.from,
+          limit: filters.limit,
+          source: filters.source,
+          to: filters.to,
+          type: filters.type,
+        },
+      },
+    );
+  }
+
+  iterateSignals(
+    projectId: string,
+    options: ListSignalsOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listSignals(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  listTrafficSnapshots(
+    projectId: string,
+    options: ListTrafficSnapshotsOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<PageTrafficSnapshotsResponse>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/analytics/traffic-snapshots`,
+      {
+        ...requestOptions,
+        query: {
+          end_date: options.endDate,
+          limit: options.limit,
+          offset: options.offset,
+          path: options.paths,
+          start_date: options.startDate,
+        },
+      },
+    );
+  }
+
+  listSearchPerformanceQueryStats(
+    projectId: string,
+    options: ListSearchPerformanceQueryStatsOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<SearchPerformanceQueryStatsResponse>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/analytics/query-stats`,
+      {
+        ...requestOptions,
+        query: {
+          connection_id: options.connectionId,
+          end_date: options.endDate,
+          limit: options.limit,
+          query: options.query,
+          start_date: options.startDate,
+        },
+      },
+    );
+  }
+
+  syncProjectTraffic(projectId: string, options?: RequestOptions) {
+    return this.request<TrafficSyncSummary>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/analytics/sync`,
+      options,
+    );
+  }
+
+  listAlertRules(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<AlertRule>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/alert-rules`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateAlertRules(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listAlertRules(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  createAlertRule(projectId: string, input: CreateAlertRuleInput, options?: RequestOptions) {
+    return this.request<AlertRule>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/alert-rules`,
+      { ...options, body: input },
+    );
+  }
+
+  updateAlertRule(ruleId: string, input: UpdateAlertRuleInput, options?: RequestOptions) {
+    return this.request<AlertRule>("PATCH", `/alert-rules/${encodedPathSegment(ruleId)}`, {
+      ...options,
+      body: input,
+    });
+  }
+
+  deleteAlertRule(ruleId: string, options?: RequestOptions) {
+    return this.request<DeleteAlertRuleResponse>(
+      "DELETE",
+      `/alert-rules/${encodedPathSegment(ruleId)}`,
+      options,
+    );
+  }
+
+  listTriggeredAlerts(
+    projectId: string,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<TriggeredAlert>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/triggered-alerts`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateTriggeredAlerts(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listTriggeredAlerts(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  muteTriggeredAlert(projectId: string, alertId: string, options?: RequestOptions) {
+    return this.request<TriggeredAlertMuteResult>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/triggered-alerts/${encodedPathSegment(alertId)}/mute`,
+      options,
+    );
+  }
+
+  markProjectAlertsRead(projectId: string, options?: RequestOptions) {
+    return this.request<TriggeredAlertsReadResult>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/triggered-alerts/mark-read`,
+      options,
+    );
+  }
+
+  listTeamMembers(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<TeamMember>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/team/members`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateTeamMembers(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listTeamMembers(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  listTeamInvites(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<TeamInvite>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/team/invites`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateTeamInvites(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listTeamInvites(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  createTeamInvite(projectId: string, input: CreateTeamInviteInput, options?: RequestOptions) {
+    return this.request<CreatedTeamInvite>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/team/invites`,
+      { ...options, body: input },
+    );
+  }
+
+  revokeTeamInvite(projectId: string, inviteId: string, options?: RequestOptions) {
+    return this.request<RevokedTeamInvite>(
+      "DELETE",
+      `/projects/${encodedPathSegment(projectId)}/team/invites/${encodedPathSegment(inviteId)}`,
+      options,
+    );
+  }
+
+  revokeTeamInviteById(inviteId: string, options?: RequestOptions) {
+    return this.request<RevokedTeamInvite>(
+      "DELETE",
+      `/team/invites/${encodedPathSegment(inviteId)}`,
+      options,
+    );
+  }
+
+  resendTeamInvite(projectId: string, inviteId: string, options?: RequestOptions) {
+    return this.request<TeamInviteResendResult>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/team/invites/${encodedPathSegment(inviteId)}/resend`,
+      options,
+    );
+  }
+
+  updateTeamMemberRole(
+    projectId: string,
+    memberId: string,
+    input: UpdateTeamMemberRoleInput,
+    options?: RequestOptions,
+  ) {
+    return this.request<TeamMemberRoleResult>(
+      "PATCH",
+      `/projects/${encodedPathSegment(projectId)}/team/members/${encodedPathSegment(memberId)}`,
+      { ...options, body: input },
+    );
+  }
+
+  removeTeamMember(projectId: string, memberId: string, options?: RequestOptions) {
+    return this.request<TeamMemberMutationResult>(
+      "DELETE",
+      `/projects/${encodedPathSegment(projectId)}/team/members/${encodedPathSegment(memberId)}`,
+      options,
+    );
+  }
+
+  listProviders(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<Provider>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/providers`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateProviders(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listProviders(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  connectProvider(
+    projectId: string,
+    providerId: string,
+    input: ConnectProviderInput = {},
+    options?: RequestOptions,
+  ) {
+    return this.request<ProviderConnection>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/providers/${encodedPathSegment(
+        providerId,
+      )}/connect`,
+      { ...options, body: bodyOrUndefined(input) },
+    );
+  }
+
+  testProviderConnection(
+    projectId: string,
+    providerId: string,
+    input: TestProviderConnectionInput = {},
+    options?: RequestOptions,
+  ) {
+    return this.request<ProviderTestResult>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/providers/${encodedPathSegment(providerId)}/test`,
+      { ...options, body: bodyOrUndefined(input) },
+    );
+  }
+
+  updateProviderSettings(
+    projectId: string,
+    providerId: string,
+    input: ProviderSettingsInput,
+    options?: RequestOptions,
+  ) {
+    return this.request<ProviderConnection>(
+      "PATCH",
+      `/projects/${encodedPathSegment(projectId)}/providers/${encodedPathSegment(providerId)}`,
+      { ...options, body: input },
+    );
+  }
+
+  setProviderEnabled(
+    projectId: string,
+    providerId: string,
+    enabled: boolean,
+    options?: RequestOptions,
+  ) {
+    return this.updateProviderSettings(projectId, providerId, { enabled }, options);
+  }
+
+  enableProvider(projectId: string, providerId: string, options?: RequestOptions) {
+    return this.setProviderEnabled(projectId, providerId, true, options);
+  }
+
+  disableProvider(projectId: string, providerId: string, options?: RequestOptions) {
+    return this.setProviderEnabled(projectId, providerId, false, options);
+  }
+
+  setProviderPriority(
+    projectId: string,
+    providerId: string,
+    priority: number,
+    options?: RequestOptions,
+  ) {
+    return this.updateProviderSettings(projectId, providerId, { priority }, options);
+  }
+
+  setPrimaryProvider(
+    projectId: string,
+    providerId: string,
+    primary = true,
+    options?: RequestOptions,
+  ) {
+    return this.updateProviderSettings(projectId, providerId, { primary }, options);
+  }
+
+  disconnectProvider(projectId: string, providerId: string, options?: RequestOptions) {
+    return this.request<ProviderDisconnectResponse>(
+      "DELETE",
+      `/projects/${encodedPathSegment(projectId)}/providers/${encodedPathSegment(providerId)}`,
+      options,
+    );
+  }
+
+  listSavedViews(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<SavedView>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/saved-views`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateSavedViews(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listSavedViews(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  createSavedView(projectId: string, input: CreateSavedViewInput, options?: RequestOptions) {
+    return this.request<SavedView>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/saved-views`,
+      { ...options, body: input },
+    );
+  }
+
+  deleteSavedView(projectId: string, viewId: string, options?: RequestOptions) {
+    return this.request<DeleteSavedViewResponse>(
+      "DELETE",
+      `/projects/${encodedPathSegment(projectId)}/saved-views/${encodedPathSegment(viewId)}`,
+      options,
+    );
+  }
+
+  deleteSavedViewById(viewId: string, options?: RequestOptions) {
+    return this.request<DeleteSavedViewResponse>(
+      "DELETE",
+      `/saved-views/${encodedPathSegment(viewId)}`,
+      options,
+    );
+  }
+
+  listCompetitors(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+    const pagination = options ?? {};
+
+    return this.request<CompetitorListResponse>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/competitors`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateCompetitors(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listCompetitors(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  addCompetitor(projectId: string, input: AddCompetitorInput, options?: RequestOptions) {
+    return this.request<Competitor>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/competitors`,
+      { ...options, body: input },
+    );
+  }
+
+  removeCompetitor(projectId: string, competitorId: string, options?: RequestOptions) {
+    return this.request<RemoveCompetitorResponse>(
+      "DELETE",
+      `/projects/${encodedPathSegment(projectId)}/competitors/${encodedPathSegment(competitorId)}`,
+      options,
+    );
+  }
+
+  removeCompetitorById(competitorId: string, options?: RequestOptions) {
+    return this.request<RemoveCompetitorResponse>(
+      "DELETE",
+      `/competitors/${encodedPathSegment(competitorId)}`,
+      options,
+    );
+  }
+
+  getNotificationPreferences(projectId: string, options?: RequestOptions) {
+    return this.request<NotificationPreferences>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/notification-preferences`,
+      options,
+    );
+  }
+
+  updateNotificationPreferences(
+    projectId: string,
+    input: UpdateNotificationPreferencesInput,
+    options?: RequestOptions,
+  ) {
+    return this.request<NotificationPreferences>(
+      "PATCH",
+      `/projects/${encodedPathSegment(projectId)}/notification-preferences`,
+      { ...options, body: input },
+    );
+  }
+
+  listMigrationTokens(
+    projectId: string,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    const pagination = options ?? {};
+
+    return this.request<MigrationTokenListResponse>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/migration-tokens`,
+      {
+        ...requestOptions,
+        query: {
+          cursor: pagination.cursor,
+          limit: pagination.limit,
+        },
+      },
+    );
+  }
+
+  iterateMigrationTokens(
+    projectId: string,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listMigrationTokens(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  mintMigrationToken(
+    projectId: string,
+    input: MintMigrationTokenInput = {},
+    options?: RequestOptions,
+  ) {
+    return this.request<IssuedMigrationToken>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/migration-tokens`,
+      { ...options, body: bodyOrUndefined(input) },
+    );
+  }
+
+  revokeMigrationToken(projectId: string, tokenId: string, options?: RequestOptions) {
+    return this.request<RevokedMigrationToken>(
+      "DELETE",
+      `/projects/${encodedPathSegment(projectId)}/migration-tokens/${encodedPathSegment(tokenId)}`,
+      options,
+    );
+  }
+
+  revokeMigrationTokenById(tokenId: string, options?: RequestOptions) {
+    return this.request<RevokedMigrationToken>(
+      "DELETE",
+      `/migration-tokens/${encodedPathSegment(tokenId)}`,
+      options,
+    );
+  }
+
+  getCloudImportCompatibility(options?: RequestOptions) {
+    return this.request<CloudImportCompatibility>("GET", "/cloud/import/compatibility", {
+      ...options,
+      auth: false,
+    });
+  }
+
+  importCloudExport(input: CloudImportPackage, options?: RequestOptions) {
+    return this.request<CloudImportFinalizeResponse>("POST", "/cloud/import", {
+      ...options,
+      body: input,
+    });
+  }
+
+  createCloudImportSession(input: CloudImportSessionCreate, options?: RequestOptions) {
+    return this.request<CloudImportSessionCreateResponse>("POST", "/cloud/import/sessions", {
+      ...options,
+      body: input,
+    });
+  }
+
+  uploadCloudImportChunk(
+    sessionId: string,
+    index: number,
+    input: CloudImportUploadChunk,
+    options?: UploadCloudImportChunkOptions,
+  ) {
+    const { contentEncoding, headers, ...requestOptions } = options ?? {};
+    const mergedHeaders = new Headers(headers);
+    if (contentEncoding !== undefined) {
+      mergedHeaders.set("Content-Encoding", contentEncoding);
+    }
+
+    return this.request<CloudImportChunkResponse>(
+      "PUT",
+      `/cloud/import/sessions/${encodedPathSegment(sessionId)}/chunks/${encodedPathSegment(String(index))}`,
+      { ...requestOptions, body: input, headers: mergedHeaders },
+    );
+  }
+
+  finalizeCloudImportSession(sessionId: string, options?: RequestOptions) {
+    return this.request<CloudImportFinalizeResponse>(
+      "POST",
+      `/cloud/import/sessions/${encodedPathSegment(sessionId)}/finalize`,
+      options,
+    );
+  }
+
+  private buildUrl(path: string, query?: QueryParams) {
+    const absolute = isAbsoluteUrl(this.baseUrl);
+    const base = `${this.baseUrl}${path.startsWith("/") ? "" : "/"}${path}`;
+    const url = new URL(base, absolute ? undefined : RELATIVE_BASE_ORIGIN);
+
+    if (query) {
+      for (const [key, rawValue] of Object.entries(query)) {
+        const rawValues: readonly QueryScalar[] = Array.isArray(rawValue)
+          ? rawValue
+          : [rawValue as QueryScalar];
+        for (const rawItem of rawValues) {
+          const value = queryValue(rawItem);
+          if (value !== undefined) {
+            url.searchParams.append(key, value);
+          }
+        }
+      }
+    }
+
+    return absolute ? url.toString() : `${url.pathname}${url.search}`;
+  }
+
+  private async request<T>(method: string, path: string, options: InternalRequestOptions = {}) {
+    const statusRef: { status: number } = { status: 0 };
+    const result = await this.requestOrUndefined<T>(method, path, options, statusRef);
+    if (result === undefined) {
+      throw new BisibilityResponseError("Bisibility API returned an empty response body.", {
+        body: "",
+        cause: undefined,
+        method,
+        status: statusRef.status,
+        url: this.buildUrl(path, options.query),
+      });
+    }
+    return result;
+  }
+
+  private async requestOrUndefined<T>(
+    method: string,
+    path: string,
+    options: InternalRequestOptions = {},
+    statusRef?: { status: number },
+  ): Promise<T | undefined> {
+    const fetchImpl = this.#fetchImpl ?? globalThis.fetch;
+    const url = this.buildUrl(path, options.query);
+    if (!fetchImpl) {
+      throw new BisibilityConfigurationError(
+        "No fetch implementation is available. Pass fetch in BisibilityClient config.",
+      );
+    }
+    if (options.auth !== false && !this.#apiKey) {
+      throw new BisibilityConfigurationError("apiKey is required for this Bisibility API method.");
+    }
+
+    const headers = mergeHeaders(this.#defaultHeaders, options.headers);
+    if (this.#projectId !== undefined && !headers.has("X-Bisibility-Project")) {
+      headers.set("X-Bisibility-Project", this.#projectId);
+    }
+    if (options.auth !== false) {
+      headers.set("Authorization", `Bearer ${this.#apiKey}`);
+    }
+    if (options.idempotencyKey) {
+      headers.set("Idempotency-Key", options.idempotencyKey);
+    }
+    headers.set("X-Bisibility-Client", CLIENT_ID);
+    if (!headers.has("User-Agent")) {
+      try {
+        headers.set("User-Agent", CLIENT_ID);
+      } catch {
+        // Browsers may forbid setting User-Agent. X-Bisibility-Client remains authoritative.
+      }
+    }
+
+    const baseInit: RequestInit = { headers, method, redirect: "error" };
+
+    if (options.body !== undefined) {
+      if (!headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+      baseInit.body = JSON.stringify(options.body);
+    }
+
+    const timeout =
+      options.timeout !== undefined
+        ? validatedTimeout(options.timeout)
+        : this.#timeout !== undefined
+          ? this.#timeout
+          : options.signal
+            ? null
+            : DEFAULT_TIMEOUT;
+    const retryable =
+      IDEMPOTENT_METHODS.has(method.toUpperCase()) || headers.has("Idempotency-Key");
+
+    for (let attempt = 0; ; attempt += 1) {
+      const init: RequestInit = { ...baseInit };
+      const signal = composedSignal(options.signal, timeout);
+      if (signal) {
+        init.signal = signal;
+      }
+
+      let response: Response;
+      try {
+        response = await fetchImpl(url, init);
+      } catch (cause) {
+        if (!retryable || attempt >= this.#maxRetries || options.signal?.aborted) {
+          throw new BisibilityNetworkError("Network error while calling the Bisibility API.", {
+            cause,
+            method,
+            url,
+          });
+        }
+        await sleepForRetry(retryBackoffMs(attempt), options.signal, method, url);
+        continue;
+      }
+
+      if (!response.ok) {
+        const error = await this.errorFromResponse(response, method, url);
+        if (
+          retryable &&
+          attempt < this.#maxRetries &&
+          (error.status === 429 || error.status === 503)
+        ) {
+          await sleepForRetry(
+            error.retryAfterSeconds === null
+              ? retryBackoffMs(attempt)
+              : error.retryAfterSeconds * 1_000,
+            options.signal,
+            method,
+            url,
+          );
+          continue;
+        }
+        throw error;
+      }
+
+      if (statusRef) {
+        statusRef.status = response.status;
+      }
+
+      if (options.parseAs === "text") {
+        return response.text() as Promise<T>;
+      }
+
+      return this.jsonFromResponse<T>(response, method, url);
+    }
+  }
+
+  private async jsonFromResponse<T>(
+    response: Response,
+    method: string,
+    url: string,
+  ): Promise<T | undefined> {
+    const body = await response.text();
+    if (!body) {
+      return undefined;
+    }
+
+    try {
+      return JSON.parse(body) as T;
+    } catch (error) {
+      throw new BisibilityResponseError("Bisibility API returned invalid JSON.", {
+        body,
+        cause: error,
+        method,
+        status: response.status,
+        url,
+      });
+    }
+  }
+
+  private async errorFromResponse(response: Response, method: string, url: string) {
+    const headers = new Headers(response.headers);
+    const body = await response.text();
+    const contentType = headers.get("Content-Type") ?? "";
+    let parsed: unknown;
+
+    if (body && contentType.includes("json")) {
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        parsed = undefined;
+      }
+    }
+
+    const problem = problemFromJson(parsed);
+    const message =
+      problem?.detail || body || `Bisibility API request failed with status ${response.status}.`;
+
+    return new BisibilityApiError(message, {
+      body,
+      headers,
+      method,
+      problem,
+      status: response.status,
+      url,
+    });
+  }
+}
+
+export function createBisibilityClient(config: BisibilityClientConfig = {}) {
+  return new BisibilityClient(config);
+}

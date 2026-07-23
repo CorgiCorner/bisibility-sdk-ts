@@ -1,0 +1,65 @@
+{
+  "name": "@bisibility/sdk",
+  "version": "0.1.1",
+  "description": "TypeScript SDK for the Bisibility REST API.",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "author": "Corgi Corner",
+  "keywords": ["api-client", "bisibility", "rank-tracking", "sdk", "seo", "typescript"],
+  "homepage": "https://bisibility.com",
+  "bugs": {
+    "url": "https://github.com/CorgiCorner/bisibility-sdk-ts/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CorgiCorner/bisibility-sdk-ts.git"
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "22.23.1",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=10.9.3 <11",
+      "onFail": "error"
+    }
+  },
+  "packageManager": "npm@10.9.3",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "files": ["CHANGELOG.md", "dist", "LICENSE", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "npm run check:node && npm run lint && npm run typecheck && npm test",
+    "check:node": "node tools/check-node.mjs",
+    "lint": "biome check .",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run check",
+    "security:dependencies": "npm audit --audit-level=high",
+    "test": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^18.19.130",
+    "@vitest/coverage-v8": "^3.2.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
