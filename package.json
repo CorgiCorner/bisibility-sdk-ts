@@ -1,9 +1,9 @@
 {
   "name": "@bisibility/sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "TypeScript SDK for the Bisibility REST API.",
   "type": "module",
-  "license": "AGPL-3.0-only",
+  "license": "Apache-2.0",
   "author": "Corgi Corner",
   "keywords": ["api-client", "bisibility", "rank-tracking", "sdk", "seo", "typescript"],
   "homepage": "https://bisibility.com",

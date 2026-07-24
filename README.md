@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> **Status:** Published on npm as v0.1.1.
+> **Status:** Published on npm as v0.1.2.
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -300,4 +300,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and
 
 ## License
 
-Licensed under the GNU Affero General Public License v3.0 only. See [LICENSE](LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
