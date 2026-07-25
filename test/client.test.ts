@@ -100,7 +100,6 @@ function project(overrides: Partial<Project> = {}): Project {
 
 function projectDefaults(overrides: Partial<ProjectDefaults> = {}): ProjectDefaults {
   return {
-    auto_schedule: true,
     city: null,
     country: "United States",
     cron_expression: null,
@@ -111,6 +110,9 @@ function projectDefaults(overrides: Partial<ProjectDefaults> = {}): ProjectDefau
     location_key: "US",
     next_check_at: "2026-01-05T00:00:00.000Z",
     project_id: "prj_1",
+    serp_depth: 100,
+    serp_stop_on_match: false,
+    source: "explicit",
     timezone: "UTC",
     updated_at: "2026-01-04T00:00:00.000Z",
     ...overrides,
@@ -880,12 +882,12 @@ describe("BisibilityClient protected resources", () => {
       client.updateProjectDefaults(
         "prj_1",
         {
-          auto_schedule: true,
           city: "Austin",
           country: "United States",
           device: "desktop",
           frequency: "daily",
           location_key: "US/Texas/Austin",
+          serp_stop_on_match: true,
         },
         { idempotencyKey: "idem_defaults" },
       ),
@@ -902,12 +904,57 @@ describe("BisibilityClient protected resources", () => {
       "idem_defaults",
     );
     expectJsonBody(fetchMock.mock.calls[2]?.[1], {
-      auto_schedule: true,
       city: "Austin",
       country: "United States",
       device: "desktop",
       frequency: "daily",
       location_key: "US/Texas/Austin",
+      serp_stop_on_match: true,
+    });
+  });
+
+  it("gets project defaults with an encoded id and forwards request options", async () => {
+    const signal = new AbortController().signal;
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(projectDefaults({ city: "New York", location_key: "US/New York/New York" })),
+    );
+
+    await expect(
+      client.getProjectDefaults("prj/ one", {
+        headers: { "X-Trace-Id": "trace_defaults" },
+        signal,
+        timeout: null,
+      }),
+    ).resolves.toEqual(projectDefaults({ city: "New York", location_key: "US/New York/New York" }));
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe("https://api.test/api/v1/projects/prj%2F%20one/defaults");
+    expect(call.init?.method).toBe("GET");
+    expect(call.init?.body).toBeUndefined();
+    expect(call.init?.signal).toBe(signal);
+    expect(call.headers.get("X-Trace-Id")).toBe("trace_defaults");
+  });
+
+  it("maps a project defaults 403 through BisibilityApiError", async () => {
+    const problem = {
+      detail: "You cannot read defaults for this project.",
+      status: 403,
+      title: "Forbidden",
+      type: "https://bisibility.dev/problems/forbidden",
+    };
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(problem, {
+        headers: { "Retry-After": "30" },
+        status: 403,
+      }),
+    );
+
+    await expect(client.getProjectDefaults("prj_1")).rejects.toMatchObject({
+      message: problem.detail,
+      name: "BisibilityApiError",
+      problem,
+      retryAfterSeconds: 30,
+      status: 403,
     });
   });
 

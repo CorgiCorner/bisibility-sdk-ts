@@ -1,6 +1,6 @@
 {
   "name": "@bisibility/sdk",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "TypeScript SDK for the Bisibility REST API.",
   "type": "module",
   "license": "Apache-2.0",
@@ -61,5 +61,8 @@
     "@vitest/coverage-v8": "^3.2.4",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "minimatch": "^10.2.5"
   }
 }

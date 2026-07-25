@@ -439,6 +439,14 @@ export class BisibilityClient {
     return this.request<Project>("DELETE", `/projects/${encodedPathSegment(projectId)}`, options);
   }
 
+  getProjectDefaults(projectId: string, options?: RequestOptions) {
+    return this.request<ProjectDefaults>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/defaults`,
+      options,
+    );
+  }
+
   updateProjectDefaults(projectId: string, input: ProjectDefaultsPatch, options?: RequestOptions) {
     return this.request<ProjectDefaults>(
       "PATCH",

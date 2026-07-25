@@ -59,7 +59,6 @@ export interface UpdateProjectInput {
 }
 
 export interface ProjectDefaults {
-  auto_schedule: boolean;
   city: string | null;
   country: string;
   cron_expression: string | null;
@@ -70,12 +69,14 @@ export interface ProjectDefaults {
   location_key: string;
   next_check_at: string | null;
   project_id: string;
+  serp_depth: number;
+  serp_stop_on_match: boolean;
+  source: "derived" | "explicit" | "fallback";
   timezone: string;
   updated_at: string | null;
 }
 
 export interface ProjectDefaultsPatch {
-  auto_schedule?: boolean;
   city?: string | null;
   country?: string;
   cron_expression?: string | null;
@@ -83,6 +84,7 @@ export interface ProjectDefaultsPatch {
   frequency?: RankCheckFrequency;
   jitter_minutes?: number;
   location_key?: string;
+  serp_stop_on_match?: boolean;
   timezone?: string;
 }
 
@@ -207,7 +209,6 @@ export interface UpdateWebhookInput {
 }
 
 export interface KeywordSchedule {
-  auto_schedule: boolean;
   cron_expression: string | null;
   frequency: RankCheckFrequency;
   jitter_minutes: number;
@@ -236,7 +237,6 @@ export interface Keyword {
 }
 
 export interface KeywordScheduleInput {
-  auto_schedule?: boolean;
   cron_expression: string | null;
   frequency: RankCheckFrequency;
   jitter_minutes?: number;
