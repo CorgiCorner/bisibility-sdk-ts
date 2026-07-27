@@ -158,7 +158,22 @@ function keywordMatchResponse(overrides: Partial<KeywordMatchResponse> = {}): Ke
         },
         matched_text: "headless cms",
         previous_position: null,
+        ranking_url: "https://example.com/headless-cms",
         text: " Headless CMS ",
+      },
+      {
+        keyword_id: "kw_2",
+        latest_position: null,
+        market: {
+          country_code: "US",
+          device: "mobile",
+          location: "Austin, Texas, United States",
+          location_key: "US/Texas/Austin",
+        },
+        matched_text: "rank tracker",
+        previous_position: null,
+        ranking_url: null,
+        text: "rank tracker",
       },
     ],
     meta: { truncated_texts: ["headless cms"] },
@@ -1049,22 +1064,25 @@ describe("BisibilityClient protected resources", () => {
     });
   });
 
-  it("matches project keywords with an encoded id and forwards request options", async () => {
+  it("matches project keywords, preserves ranking URLs, and forwards request options", async () => {
     const signal = new AbortController().signal;
     const response = keywordMatchResponse();
     fetchMock.mockResolvedValueOnce(jsonResponse(response));
 
-    await expect(
-      client.matchProjectKeywords(
-        "prj/ one",
-        { texts: [" Headless CMS ", "rank tracker"] },
-        {
-          headers: { "X-Trace-Id": "trace_matches" },
-          signal,
-          timeout: null,
-        },
-      ),
-    ).resolves.toEqual(response);
+    const result = await client.matchProjectKeywords(
+      "prj/ one",
+      { texts: [" Headless CMS ", "rank tracker"] },
+      {
+        headers: { "X-Trace-Id": "trace_matches" },
+        signal,
+        timeout: null,
+      },
+    );
+
+    expect(result).toEqual(response);
+    expect(result.data[0]?.ranking_url).toBe("https://example.com/headless-cms");
+    expect(Object.hasOwn(result.data[1] ?? {}, "ranking_url")).toBe(true);
+    expect(result.data[1]?.ranking_url).toBeNull();
 
     const call = lastCall(fetchMock);
     expect(call.url).toBe("https://api.test/api/v1/projects/prj%2F%20one/keyword-matches");

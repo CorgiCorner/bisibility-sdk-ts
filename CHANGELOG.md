@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 - 2026-07-28
+
+- Added nullable `ranking_url` to `KeywordMatch`, containing the URL that ranked at
+  `latest_position` in the last completed check or null when no check has completed.
+
 ## 0.3.0 - 2026-07-27
 
 - Added `getProjectOverview` with device, range, and tag filters to read visibility, position

@@ -139,6 +139,11 @@ export interface KeywordMatch {
   /** Trimmed, lowercase request text used to match this keyword. */
   matched_text: string;
   previous_position: number | null;
+  /**
+   * URL that ranked at `latest_position` in the last completed check, or null when the keyword has
+   * no completed check.
+   */
+  ranking_url: string | null;
   /** Stored keyword text, which can differ in case and whitespace from matched_text. */
   text: string;
 }
