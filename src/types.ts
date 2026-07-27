@@ -88,6 +88,71 @@ export interface ProjectDefaultsPatch {
   timezone?: string;
 }
 
+export type ProjectOverviewRange = "7d" | "28d" | "90d";
+
+export type ProjectOverviewDevice = "all" | Device;
+
+export interface ProjectOverviewOptions {
+  device?: ProjectOverviewDevice;
+  range?: ProjectOverviewRange;
+  tag?: string;
+}
+
+export interface ProjectOverviewPositionDistribution {
+  count: number | null;
+  max: number;
+  min: number;
+}
+
+export interface ProjectOverview {
+  average_position: number | null;
+  average_position_delta: number | null;
+  keywords_added_this_month: number;
+  last_check_at: string | null;
+  next_check_at: string | null;
+  position_distribution: ProjectOverviewPositionDistribution[];
+  project_id: string;
+  top_10_count: number | null;
+  top_10_delta: number | null;
+  top_100_count: number | null;
+  top_3_count: number | null;
+  tracked_keyword_count: number;
+  visibility: number | null;
+  visibility_delta: number | null;
+}
+
+export interface KeywordMatchRequest {
+  texts: readonly string[];
+}
+
+export interface KeywordMatchMarket {
+  country_code: string;
+  device: Device;
+  location: string;
+  location_key: string;
+}
+
+export interface KeywordMatch {
+  keyword_id: string;
+  latest_position: number | null;
+  market: KeywordMatchMarket;
+  /** Trimmed, lowercase request text used to match this keyword. */
+  matched_text: string;
+  previous_position: number | null;
+  /** Stored keyword text, which can differ in case and whitespace from matched_text. */
+  text: string;
+}
+
+export interface KeywordMatchMeta {
+  /** Normalized texts with more than 100 matching markets; their returned rows are partial. */
+  truncated_texts: string[];
+}
+
+export interface KeywordMatchResponse {
+  data: KeywordMatch[];
+  meta: KeywordMatchMeta;
+}
+
 export type TrackingScope = "city" | "country";
 
 export type LocationKind = "city" | "country" | "region";
@@ -416,6 +481,86 @@ export interface KeywordResearchConnection {
   id: string;
   label: string;
   provider: string;
+}
+
+export interface BacklinksSummary {
+  backlinks_total: number;
+  broken_backlinks: number;
+  broken_pages: number;
+  dofollow_pct: number;
+  domain_rank: number;
+  lost_backlinks: number;
+  lost_referring_domains: number;
+  new_backlinks: number;
+  new_referring_domains: number;
+  referring_domains_total: number;
+  referring_pages: number;
+  spam_score: number;
+}
+
+export interface BacklinksHistoryMonth {
+  lost_links: number;
+  month: string;
+  new_links: number;
+}
+
+export interface BacklinkRow {
+  anchor: string;
+  domain_authority: number;
+  first_seen: string;
+  flags: ("nofollow" | "ugc" | "sponsored" | "image" | "sitewide")[];
+  links_count: number;
+  lost_at: string | null;
+  source_domain: string;
+  source_url: string;
+  spam_score: number;
+  status: "active" | "new" | "lost";
+  target_url: string;
+}
+
+export interface BacklinksSnapshot {
+  cached: boolean;
+  cached_until: string;
+  cost_cents: number;
+  estimate?: boolean;
+  estimated_cost_cents?: number;
+  fetched_at: string;
+  fetched_row_count: number;
+  history: BacklinksHistoryMonth[];
+  include_subdomains: boolean;
+  provider: string;
+  rows: BacklinkRow[];
+  summary: BacklinksSummary;
+  target: string;
+  target_scope: "site" | "page";
+  total_rows_available: number;
+}
+
+/**
+ * Options for analyzing backlinks. This operation requires API write scope because a cache miss
+ * can spend the project's provider budget. Use `estimateOnly` (`estimate_only` on the wire) for a
+ * free dry run.
+ */
+export interface AnalyzeBacklinksOptions {
+  estimateOnly?: boolean;
+  fresh?: boolean;
+  includeSubdomains?: boolean;
+  maxCostCents?: number;
+  mode?: "as_is" | "one_per_domain";
+  resultLimit?: 100 | 300 | 500 | 1000;
+  target: string;
+  targetScope?: "site" | "page";
+}
+
+/**
+ * Options for loading more rows into an unexpired backlinks snapshot. This operation requires API
+ * write scope and spends provider budget.
+ */
+export interface LoadMoreBacklinkRowsOptions {
+  includeSubdomains: boolean;
+  limit: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 1000;
+  target: string;
+  targetScope: "site" | "page";
 }
 
 export type KeywordResearchMode = "auto" | "related" | "suggestions" | "ideas";

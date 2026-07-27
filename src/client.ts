@@ -8,7 +8,9 @@ import { iterateCursorPagination } from "./pagination.js";
 import type {
   AddCompetitorInput,
   AlertRule,
+  AnalyzeBacklinksOptions,
   ApiKey,
+  BacklinksSnapshot,
   BisibilityClientConfig,
   Capability,
   CloudImportChunkResponse,
@@ -47,6 +49,8 @@ import type {
   Keyword,
   KeywordBulkInput,
   KeywordBulkResponse,
+  KeywordMatchRequest,
+  KeywordMatchResponse,
   KeywordMetricsResponse,
   KeywordResearchResponse,
   ListKeywordsOptions,
@@ -56,6 +60,7 @@ import type {
   ListSearchPerformanceQueryStatsOptions,
   ListSignalsOptions,
   ListTrafficSnapshotsOptions,
+  LoadMoreBacklinkRowsOptions,
   LocationSuggestionsResponse,
   Me,
   MigrationTokenListResponse,
@@ -69,6 +74,8 @@ import type {
   Project,
   ProjectDefaults,
   ProjectDefaultsPatch,
+  ProjectOverview,
+  ProjectOverviewOptions,
   Provider,
   ProviderConnection,
   ProviderDisconnectResponse,
@@ -447,6 +454,39 @@ export class BisibilityClient {
     );
   }
 
+  getProjectOverview(
+    projectId: string,
+    options?: ProjectOverviewOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    const filters = options ?? {};
+
+    return this.request<ProjectOverview>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/overview`,
+      {
+        ...requestOptions,
+        query: {
+          device: filters.device,
+          range: filters.range,
+          tag: filters.tag,
+        },
+      },
+    );
+  }
+
+  matchProjectKeywords(
+    projectId: string,
+    input: KeywordMatchRequest,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<KeywordMatchResponse>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/keyword-matches`,
+      { ...requestOptions, body: input },
+    );
+  }
+
   updateProjectDefaults(projectId: string, input: ProjectDefaultsPatch, options?: RequestOptions) {
     return this.request<ProjectDefaults>(
       "PATCH",
@@ -692,6 +732,59 @@ export class BisibilityClient {
           mode: options.mode,
           result_limit: options.resultLimit,
           seed: options.seed,
+        },
+      },
+    );
+  }
+
+  /**
+   * Analyze backlinks. This operation requires API write scope because a cache miss can spend the
+   * project's provider budget. Use `estimateOnly` (`estimate_only` on the wire) for a free dry
+   * run.
+   */
+  analyzeBacklinks(
+    projectId: string,
+    options: AnalyzeBacklinksOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<DataResponse<BacklinksSnapshot>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/backlinks`,
+      {
+        ...requestOptions,
+        query: {
+          target: options.target,
+          target_scope: options.targetScope,
+          include_subdomains: options.includeSubdomains,
+          result_limit: options.resultLimit,
+          mode: options.mode,
+          estimate_only: options.estimateOnly,
+          fresh: options.fresh,
+          max_cost_cents: options.maxCostCents,
+        },
+      },
+    );
+  }
+
+  /**
+   * Load more rows into an unexpired backlinks snapshot. This operation requires API write scope
+   * and spends provider budget.
+   */
+  loadMoreBacklinkRows(
+    projectId: string,
+    options: LoadMoreBacklinkRowsOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<DataResponse<BacklinksSnapshot>>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/backlinks/rows`,
+      {
+        ...requestOptions,
+        body: {
+          target: options.target,
+          target_scope: options.targetScope,
+          include_subdomains: options.includeSubdomains,
+          limit: options.limit,
         },
       },
     );

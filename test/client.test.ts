@@ -28,6 +28,7 @@ import type {
   IssuedMigrationToken,
   Keyword,
   KeywordBulkResponse,
+  KeywordMatchResponse,
   KeywordMetricsResponse,
   KeywordResearchResponse,
   ListResponse,
@@ -40,6 +41,7 @@ import type {
   PlanProviderRate,
   Project,
   ProjectDefaults,
+  ProjectOverview,
   Provider,
   ProviderConnection,
   ProviderTestResult,
@@ -115,6 +117,51 @@ function projectDefaults(overrides: Partial<ProjectDefaults> = {}): ProjectDefau
     source: "explicit",
     timezone: "UTC",
     updated_at: "2026-01-04T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function projectOverview(overrides: Partial<ProjectOverview> = {}): ProjectOverview {
+  return {
+    average_position: 12.5,
+    average_position_delta: 1.2,
+    keywords_added_this_month: 3,
+    last_check_at: "2026-07-27T08:00:00.000Z",
+    next_check_at: "2026-07-28T08:00:00.000Z",
+    position_distribution: [
+      { count: 4, max: 3, min: 1 },
+      { count: null, max: 10, min: 4 },
+    ],
+    project_id: "prj_1",
+    top_10_count: 9,
+    top_10_delta: -2,
+    top_100_count: 21,
+    top_3_count: 4,
+    tracked_keyword_count: 24,
+    visibility: 42.7,
+    visibility_delta: 3.1,
+    ...overrides,
+  };
+}
+
+function keywordMatchResponse(overrides: Partial<KeywordMatchResponse> = {}): KeywordMatchResponse {
+  return {
+    data: [
+      {
+        keyword_id: "kw_1",
+        latest_position: 4,
+        market: {
+          country_code: "US",
+          device: "desktop",
+          location: "Austin, Texas, United States",
+          location_key: "US/Texas/Austin",
+        },
+        matched_text: "headless cms",
+        previous_position: null,
+        text: " Headless CMS ",
+      },
+    ],
+    meta: { truncated_texts: ["headless cms"] },
     ...overrides,
   };
 }
@@ -958,6 +1005,94 @@ describe("BisibilityClient protected resources", () => {
     });
   });
 
+  it("gets a project overview with filters, an encoded id, and request options", async () => {
+    const signal = new AbortController().signal;
+    const response = projectOverview();
+    fetchMock.mockResolvedValueOnce(jsonResponse(response));
+
+    await expect(
+      client.getProjectOverview(
+        "prj/ one",
+        { device: "mobile", range: "90d", tag: "Priority tag" },
+        {
+          headers: { "X-Trace-Id": "trace_overview" },
+          signal,
+          timeout: null,
+        },
+      ),
+    ).resolves.toEqual(response);
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe(
+      "https://api.test/api/v1/projects/prj%2F%20one/overview?device=mobile&range=90d&tag=Priority+tag",
+    );
+    expect(call.init?.method).toBe("GET");
+    expect(call.init?.body).toBeUndefined();
+    expect(call.init?.signal).toBe(signal);
+    expect(call.headers.get("X-Trace-Id")).toBe("trace_overview");
+  });
+
+  it("maps a project overview 403 through BisibilityApiError", async () => {
+    const problem = {
+      detail: "You cannot read this project overview.",
+      status: 403,
+      title: "Forbidden",
+      type: "https://bisibility.dev/problems/forbidden",
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(problem, { status: 403 }));
+
+    await expect(client.getProjectOverview("prj_1")).rejects.toMatchObject({
+      message: problem.detail,
+      name: "BisibilityApiError",
+      problem,
+      status: 403,
+    });
+  });
+
+  it("matches project keywords with an encoded id and forwards request options", async () => {
+    const signal = new AbortController().signal;
+    const response = keywordMatchResponse();
+    fetchMock.mockResolvedValueOnce(jsonResponse(response));
+
+    await expect(
+      client.matchProjectKeywords(
+        "prj/ one",
+        { texts: [" Headless CMS ", "rank tracker"] },
+        {
+          headers: { "X-Trace-Id": "trace_matches" },
+          signal,
+          timeout: null,
+        },
+      ),
+    ).resolves.toEqual(response);
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe("https://api.test/api/v1/projects/prj%2F%20one/keyword-matches");
+    expect(call.init?.method).toBe("POST");
+    expect(call.init?.signal).toBe(signal);
+    expect(call.headers.get("X-Trace-Id")).toBe("trace_matches");
+    expectJsonBody(call.init, { texts: [" Headless CMS ", "rank tracker"] });
+  });
+
+  it("maps a project keyword match 403 through BisibilityApiError", async () => {
+    const problem = {
+      detail: "You cannot match keywords for this project.",
+      status: 403,
+      title: "Forbidden",
+      type: "https://bisibility.dev/problems/forbidden",
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(problem, { status: 403 }));
+
+    await expect(
+      client.matchProjectKeywords("prj_1", { texts: ["headless cms"] }),
+    ).rejects.toMatchObject({
+      message: problem.detail,
+      name: "BisibilityApiError",
+      problem,
+      status: 403,
+    });
+  });
+
   it("lists, creates, and revokes API keys", async () => {
     const created: CreatedApiKey = {
       ...apiKeyResource({ id: "key_new", name: "CI" }),
@@ -1186,6 +1321,69 @@ describe("BisibilityClient protected resources", () => {
     expect(lastCall(fetchMock).url).toBe(
       "https://api.test/api/v1/projects/prj%201/keyword-research?estimate_only=true&max_cost_cents=2&seed=rank+tracker",
     );
+  });
+
+  it("analyzes backlinks with camelCase options mapped to snake_case query parameters", async () => {
+    const body = { data: { target: "example.com" } };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(
+      client.analyzeBacklinks("proj_1", {
+        estimateOnly: false,
+        fresh: true,
+        includeSubdomains: false,
+        maxCostCents: 9,
+        mode: "one_per_domain",
+        resultLimit: 500,
+        target: "example.com",
+        targetScope: "site",
+      }),
+    ).resolves.toEqual(body);
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe(
+      "https://api.test/api/v1/projects/proj_1/backlinks?target=example.com&target_scope=site&include_subdomains=false&result_limit=500&mode=one_per_domain&estimate_only=false&fresh=true&max_cost_cents=9",
+    );
+    expect(call.init?.method).toBe("GET");
+    expect(call.init?.body).toBeUndefined();
+  });
+
+  it("omits unset optional backlinks query parameters", async () => {
+    const body = { data: { target: "example.com" } };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(client.analyzeBacklinks("proj_1", { target: "example.com" })).resolves.toEqual(
+      body,
+    );
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe("https://api.test/api/v1/projects/proj_1/backlinks?target=example.com");
+    expect(call.init?.method).toBe("GET");
+    expect(call.init?.body).toBeUndefined();
+  });
+
+  it("loads more backlink rows with a snake_case JSON body", async () => {
+    const body = { data: { rows: [] } };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(
+      client.loadMoreBacklinkRows("proj_1", {
+        includeSubdomains: true,
+        limit: 300,
+        target: "example.com",
+        targetScope: "site",
+      }),
+    ).resolves.toEqual(body);
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe("https://api.test/api/v1/projects/proj_1/backlinks/rows");
+    expect(call.init?.method).toBe("POST");
+    expectJsonBody(call.init, {
+      target: "example.com",
+      target_scope: "site",
+      include_subdomains: true,
+      limit: 300,
+    });
   });
 
   it("gets keyword metrics with an API-shaped body and cached response counts", async () => {

@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> **Status:** Published on npm as v0.2.0.
+> **Status:** Published on npm as v0.3.0.
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -135,6 +135,7 @@ on the client or an individual request to opt out.
 - Keywords: `listKeywords`, `iterateKeywords`, `addKeywords`, `getKeyword`, `updateKeyword`,
   `setKeywordTargetUrl`, `deleteKeyword`, `bulkUpdateKeywords`, `listRankedKeywordSuggestions`,
   `researchKeywords`, `getKeywordMetrics`
+- Backlinks: `analyzeBacklinks`, `loadMoreBacklinkRows`
 - Rank checks: `listRankChecks`, `runRankCheck`, `getRankCheckResult`, `exportRankHistory`,
   `iterateRankHistoryExport`
 - Sitemap monitors: `listSitemapMonitors`, `updateSitemapMonitor`
