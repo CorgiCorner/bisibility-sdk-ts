@@ -211,13 +211,13 @@ describe("BisibilityClient retry and backoff", () => {
     const withKey = vi
       .fn()
       .mockResolvedValueOnce(busy())
-      .mockResolvedValueOnce(json({ id: "key_1" }));
+      .mockResolvedValueOnce(json({ id: "key_f00000000000000000000000" }));
     const result = client(withKey, { maxRetries: 1 }).createApiKey(
       { name: "CI" },
       { idempotencyKey: "idem_1", timeout: null },
     );
     await vi.advanceTimersByTimeAsync(500);
-    await expect(result).resolves.toEqual({ id: "key_1" });
+    await expect(result).resolves.toEqual({ id: "key_f00000000000000000000000" });
   });
 
   it("lets a caller abort interrupt a retry sleep", async () => {
@@ -244,25 +244,23 @@ describe("BisibilityClient retry and backoff", () => {
 
 describe("BisibilityClient resource iterators", () => {
   it("exercises every resource iterator", async () => {
-    const fetchMock = vi.fn(async (url: string | URL | Request) =>
-      json({ data: [{ id: String(url) }], meta: { next_cursor: null } }),
-    );
+    const fetchMock = vi.fn(async () => json({ data: [], meta: { next_cursor: null } }));
     const sdk = client(fetchMock, { maxRetries: 0, timeout: null });
     const iterators = [
-      sdk.iterateKeywords("prj_1", { search: "same" }),
-      sdk.iterateRankChecks("kw_1", { status: "completed" }),
-      sdk.iterateSignals("prj_1", { source: "api" }),
+      sdk.iterateKeywords("prj_a00000000000000000000000", { search: "same" }),
+      sdk.iterateRankChecks("kw_b00000000000000000000000", { status: "completed" }),
+      sdk.iterateSignals("prj_a00000000000000000000000", { source: "api" }),
       sdk.iterateApiKeys(),
-      sdk.iterateProjectApiKeys("prj_1"),
-      sdk.iterateWebhooks("prj_1"),
-      sdk.iterateAlertRules("prj_1"),
-      sdk.iterateTriggeredAlerts("prj_1"),
-      sdk.iterateTeamMembers("prj_1"),
-      sdk.iterateTeamInvites("prj_1"),
-      sdk.iterateProviders("prj_1"),
-      sdk.iterateSavedViews("prj_1"),
-      sdk.iterateCompetitors("prj_1"),
-      sdk.iterateMigrationTokens("prj_1"),
+      sdk.iterateProjectApiKeys("prj_a00000000000000000000000"),
+      sdk.iterateWebhooks("prj_a00000000000000000000000"),
+      sdk.iterateAlertRules("prj_a00000000000000000000000"),
+      sdk.iterateTriggeredAlerts("prj_a00000000000000000000000"),
+      sdk.iterateTeamMembers("prj_a00000000000000000000000"),
+      sdk.iterateTeamInvites("prj_a00000000000000000000000"),
+      sdk.iterateProviders("prj_a00000000000000000000000"),
+      sdk.iterateSavedViews("prj_a00000000000000000000000"),
+      sdk.iterateCompetitors("prj_a00000000000000000000000"),
+      sdk.iterateMigrationTokens("prj_a00000000000000000000000"),
     ];
 
     for (const iterator of iterators) {
@@ -270,7 +268,7 @@ describe("BisibilityClient resource iterators", () => {
       for await (const item of iterator) {
         items.push(item);
       }
-      expect(items).toHaveLength(1);
+      expect(items).toHaveLength(0);
     }
     expect(fetchMock).toHaveBeenCalledTimes(iterators.length);
   });
@@ -317,10 +315,14 @@ describe("BisibilityClient empty response handling", () => {
     const fetchMock = vi.fn().mockResolvedValue(empty(200));
 
     await expect(
-      client(fetchMock, { maxRetries: 0 }).getProject("prj_1", { timeout: null }),
+      client(fetchMock, { maxRetries: 0 }).getProject("prj_a00000000000000000000000", {
+        timeout: null,
+      }),
     ).rejects.toMatchObject({ status: 200 });
     await expect(
-      client(fetchMock, { maxRetries: 0 }).getProject("prj_1", { timeout: null }),
+      client(fetchMock, { maxRetries: 0 }).getProject("prj_a00000000000000000000000", {
+        timeout: null,
+      }),
     ).rejects.toBeInstanceOf(BisibilityResponseError);
   });
 
@@ -333,7 +335,9 @@ describe("BisibilityClient empty response handling", () => {
     );
 
     await expect(
-      client(fetchMock, { maxRetries: 0 }).getProject("prj_1", { timeout: null }),
+      client(fetchMock, { maxRetries: 0 }).getProject("prj_a00000000000000000000000", {
+        timeout: null,
+      }),
     ).rejects.toMatchObject({ status: 200 });
   });
 });

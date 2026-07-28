@@ -5,22 +5,29 @@ import {
   BisibilityResponseError,
 } from "./errors.js";
 import { iterateCursorPagination } from "./pagination.js";
+import { validatePublicIdRequest, validatePublicIdResponse } from "./public-id-contract.js";
+import { isPublicIdOfType } from "./public-id.js";
 import type {
   AddCompetitorInput,
+  AlertId,
   AlertRule,
+  AlertRuleId,
   AnalyzeBacklinksOptions,
   ApiKey,
+  ApiKeyId,
   BacklinksSnapshot,
   BisibilityClientConfig,
   Capability,
   CloudImportChunkResponse,
   CloudImportCompatibility,
   CloudImportFinalizeResponse,
+  CloudImportJobId,
   CloudImportPackage,
   CloudImportSessionCreate,
   CloudImportSessionCreateResponse,
   CloudImportUploadChunk,
   Competitor,
+  CompetitorId,
   CompetitorListResponse,
   ConnectProviderInput,
   CostEstimate,
@@ -45,10 +52,12 @@ import type {
   GetCostEstimateOptions,
   GetKeywordMetricsInput,
   HealthResponse,
+  InviteId,
   IssuedMigrationToken,
   Keyword,
   KeywordBulkInput,
   KeywordBulkResponse,
+  KeywordId,
   KeywordMatchRequest,
   KeywordMatchResponse,
   KeywordMetricsResponse,
@@ -63,6 +72,8 @@ import type {
   LoadMoreBacklinkRowsOptions,
   LocationSuggestionsResponse,
   Me,
+  MembershipId,
+  MigrationTokenId,
   MigrationTokenListResponse,
   MintMigrationTokenInput,
   NotificationPreferences,
@@ -74,6 +85,7 @@ import type {
   Project,
   ProjectDefaults,
   ProjectDefaultsPatch,
+  ProjectId,
   ProjectOverview,
   ProjectOverviewOptions,
   Provider,
@@ -83,6 +95,7 @@ import type {
   ProviderSettingsInput,
   ProviderTestResult,
   RankCheck,
+  RankCheckId,
   RankHistoryExportResponse,
   RankedKeywordSuggestionsResponse,
   RemoveCompetitorResponse,
@@ -93,6 +106,7 @@ import type {
   RunRankCheckInput,
   RunRankCheckOptions,
   SavedView,
+  SavedViewId,
   SearchLocationsOptions,
   SearchPerformanceQueryStatsResponse,
   Signal,
@@ -118,6 +132,7 @@ import type {
   UpdateWebhookInput,
   UploadCloudImportChunkOptions,
   Webhook,
+  WebhookId,
 } from "./types.js";
 import { SDK_VERSION } from "./version.js";
 
@@ -322,11 +337,14 @@ export class BisibilityClient {
   readonly #defaultHeaders: HeadersInit | undefined;
   readonly #fetchImpl: FetchLike | undefined;
   readonly #maxRetries: number;
-  readonly #projectId: string | undefined;
+  readonly #projectId: ProjectId | undefined;
   readonly #timeout: number | null | undefined;
   readonly baseUrl: string;
 
   constructor(config: BisibilityClientConfig = {}) {
+    if (config.projectId !== undefined && !isPublicIdOfType(config.projectId, "prj")) {
+      throw new BisibilityConfigurationError("projectId must match prj_[a-z][a-z0-9]{23}.");
+    }
     this.#apiKey = config.apiKey;
     this.baseUrl = normalizeBaseUrl(config.baseUrl);
     this.#defaultHeaders = config.headers;
@@ -412,7 +430,7 @@ export class BisibilityClient {
     });
   }
 
-  revokeMyToken(tokenId: string, options?: RequestOptions) {
+  revokeMyToken(tokenId: PersonalAccessToken["id"] | "current", options?: RequestOptions) {
     return this.request<PersonalAccessToken>(
       "DELETE",
       `/me/tokens/${encodedPathSegment(tokenId)}`,
@@ -431,22 +449,22 @@ export class BisibilityClient {
     });
   }
 
-  getProject(projectId: string, options?: RequestOptions) {
+  getProject(projectId: ProjectId, options?: RequestOptions) {
     return this.request<Project>("GET", `/projects/${encodedPathSegment(projectId)}`, options);
   }
 
-  updateProject(projectId: string, input: UpdateProjectInput, options?: RequestOptions) {
+  updateProject(projectId: ProjectId, input: UpdateProjectInput, options?: RequestOptions) {
     return this.request<Project>("PATCH", `/projects/${encodedPathSegment(projectId)}`, {
       ...options,
       body: input,
     });
   }
 
-  deleteProject(projectId: string, options?: RequestOptions) {
+  deleteProject(projectId: ProjectId, options?: RequestOptions) {
     return this.request<Project>("DELETE", `/projects/${encodedPathSegment(projectId)}`, options);
   }
 
-  getProjectDefaults(projectId: string, options?: RequestOptions) {
+  getProjectDefaults(projectId: ProjectId, options?: RequestOptions) {
     return this.request<ProjectDefaults>(
       "GET",
       `/projects/${encodedPathSegment(projectId)}/defaults`,
@@ -455,7 +473,7 @@ export class BisibilityClient {
   }
 
   getProjectOverview(
-    projectId: string,
+    projectId: ProjectId,
     options?: ProjectOverviewOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -476,7 +494,7 @@ export class BisibilityClient {
   }
 
   matchProjectKeywords(
-    projectId: string,
+    projectId: ProjectId,
     input: KeywordMatchRequest,
     requestOptions?: RequestOptions,
   ) {
@@ -487,7 +505,11 @@ export class BisibilityClient {
     );
   }
 
-  updateProjectDefaults(projectId: string, input: ProjectDefaultsPatch, options?: RequestOptions) {
+  updateProjectDefaults(
+    projectId: ProjectId,
+    input: ProjectDefaultsPatch,
+    options?: RequestOptions,
+  ) {
     return this.request<ProjectDefaults>(
       "PATCH",
       `/projects/${encodedPathSegment(projectId)}/defaults`,
@@ -518,12 +540,12 @@ export class BisibilityClient {
     return this.request<CreatedApiKey>("POST", "/api-keys", { ...options, body: input });
   }
 
-  revokeApiKey(keyId: string, options?: RequestOptions) {
+  revokeApiKey(keyId: ApiKeyId, options?: RequestOptions) {
     return this.request<ApiKey>("DELETE", `/api-keys/${encodedPathSegment(keyId)}`, options);
   }
 
   listProjectApiKeys(
-    projectId: string,
+    projectId: ProjectId,
     options?: PaginationOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -543,7 +565,7 @@ export class BisibilityClient {
   }
 
   iterateProjectApiKeys(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -553,7 +575,7 @@ export class BisibilityClient {
     );
   }
 
-  createProjectApiKey(projectId: string, input: { name: string }, options?: RequestOptions) {
+  createProjectApiKey(projectId: ProjectId, input: { name: string }, options?: RequestOptions) {
     return this.request<CreatedApiKey>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/api-keys`,
@@ -561,7 +583,7 @@ export class BisibilityClient {
     );
   }
 
-  listWebhooks(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+  listWebhooks(projectId: ProjectId, options?: PaginationOptions, requestOptions?: RequestOptions) {
     const pagination = options ?? {};
 
     return this.request<ListResponse<Webhook>>(
@@ -578,7 +600,7 @@ export class BisibilityClient {
   }
 
   iterateWebhooks(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -588,7 +610,7 @@ export class BisibilityClient {
     );
   }
 
-  createWebhook(projectId: string, input: CreateWebhookInput, options?: RequestOptions) {
+  createWebhook(projectId: ProjectId, input: CreateWebhookInput, options?: RequestOptions) {
     return this.request<Webhook>("POST", `/projects/${encodedPathSegment(projectId)}/webhooks`, {
       ...options,
       body: input,
@@ -596,8 +618,8 @@ export class BisibilityClient {
   }
 
   updateWebhook(
-    projectId: string,
-    webhookId: string,
+    projectId: ProjectId,
+    webhookId: WebhookId,
     input: UpdateWebhookInput,
     options?: RequestOptions,
   ) {
@@ -608,7 +630,7 @@ export class BisibilityClient {
     );
   }
 
-  deleteWebhook(projectId: string, webhookId: string, options?: RequestOptions) {
+  deleteWebhook(projectId: ProjectId, webhookId: WebhookId, options?: RequestOptions) {
     return this.request<Webhook>(
       "DELETE",
       `/projects/${encodedPathSegment(projectId)}/webhooks/${encodedPathSegment(webhookId)}`,
@@ -616,7 +638,11 @@ export class BisibilityClient {
     );
   }
 
-  listKeywords(projectId: string, options?: ListKeywordsOptions, requestOptions?: RequestOptions) {
+  listKeywords(
+    projectId: ProjectId,
+    options?: ListKeywordsOptions,
+    requestOptions?: RequestOptions,
+  ) {
     const filters = options ?? {};
 
     return this.request<ListResponse<Keyword>>(
@@ -642,7 +668,7 @@ export class BisibilityClient {
   }
 
   iterateKeywords(
-    projectId: string,
+    projectId: ProjectId,
     options: ListKeywordsOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -652,7 +678,7 @@ export class BisibilityClient {
     );
   }
 
-  addKeywords(projectId: string, input: CreateKeywordsInput, options?: RequestOptions) {
+  addKeywords(projectId: ProjectId, input: CreateKeywordsInput, options?: RequestOptions) {
     return this.request<CreateKeywordsResponse>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/keywords`,
@@ -660,22 +686,22 @@ export class BisibilityClient {
     );
   }
 
-  getKeyword(keywordId: string, options?: RequestOptions) {
+  getKeyword(keywordId: KeywordId, options?: RequestOptions) {
     return this.request<Keyword>("GET", `/keywords/${encodedPathSegment(keywordId)}`, options);
   }
 
-  updateKeyword(keywordId: string, input: UpdateKeywordInput, options?: RequestOptions) {
+  updateKeyword(keywordId: KeywordId, input: UpdateKeywordInput, options?: RequestOptions) {
     return this.request<Keyword>("PATCH", `/keywords/${encodedPathSegment(keywordId)}`, {
       ...options,
       body: input,
     });
   }
 
-  setKeywordTargetUrl(keywordId: string, targetUrl: string | null, options?: RequestOptions) {
+  setKeywordTargetUrl(keywordId: KeywordId, targetUrl: string | null, options?: RequestOptions) {
     return this.updateKeyword(keywordId, { target_url: targetUrl }, options);
   }
 
-  deleteKeyword(keywordId: string, options?: RequestOptions) {
+  deleteKeyword(keywordId: KeywordId, options?: RequestOptions) {
     return this.requestOrUndefined<Keyword>(
       "DELETE",
       `/keywords/${encodedPathSegment(keywordId)}`,
@@ -688,7 +714,7 @@ export class BisibilityClient {
   }
 
   listRankedKeywordSuggestions(
-    projectId: string,
+    projectId: ProjectId,
     options?: ListRankedKeywordSuggestionsOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -714,7 +740,7 @@ export class BisibilityClient {
    * miss can spend the project's provider budget. Use `estimateOnly` for a free dry run.
    */
   researchKeywords(
-    projectId: string,
+    projectId: ProjectId,
     options: ResearchKeywordsOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -743,7 +769,7 @@ export class BisibilityClient {
    * run.
    */
   analyzeBacklinks(
-    projectId: string,
+    projectId: ProjectId,
     options: AnalyzeBacklinksOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -771,7 +797,7 @@ export class BisibilityClient {
    * and spends provider budget.
    */
   loadMoreBacklinkRows(
-    projectId: string,
+    projectId: ProjectId,
     options: LoadMoreBacklinkRowsOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -794,7 +820,7 @@ export class BisibilityClient {
    * Hydrate keyword metrics. This operation requires API write scope because cache misses can
    * spend the project's provider budget. Use `estimate_only` for a free dry run.
    */
-  getKeywordMetrics(projectId: string, input: GetKeywordMetricsInput, options?: RequestOptions) {
+  getKeywordMetrics(projectId: ProjectId, input: GetKeywordMetricsInput, options?: RequestOptions) {
     return this.request<KeywordMetricsResponse>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/keyword-metrics`,
@@ -803,17 +829,17 @@ export class BisibilityClient {
   }
 
   exportRankHistory(
-    projectId: string,
+    projectId: ProjectId,
     options: ExportRankHistoryCsvOptions,
     requestOptions?: RequestOptions,
   ): Promise<string>;
   exportRankHistory(
-    projectId: string,
+    projectId: ProjectId,
     options?: ExportRankHistoryJsonOptions,
     requestOptions?: RequestOptions,
   ): Promise<RankHistoryExportResponse>;
   exportRankHistory(
-    projectId: string,
+    projectId: ProjectId,
     options: ExportRankHistoryCsvOptions | ExportRankHistoryJsonOptions = {},
     requestOptions?: RequestOptions,
   ): Promise<RankHistoryExportResponse | string> {
@@ -836,7 +862,7 @@ export class BisibilityClient {
   }
 
   iterateRankHistoryExport(
-    projectId: string,
+    projectId: ProjectId,
     options: ExportRankHistoryJsonOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -851,7 +877,7 @@ export class BisibilityClient {
     );
   }
 
-  listSitemapMonitors(projectId: string, options?: RequestOptions) {
+  listSitemapMonitors(projectId: ProjectId, options?: RequestOptions) {
     return this.request<SitemapMonitorListResponse>(
       "GET",
       `/projects/${encodedPathSegment(projectId)}/sitemap-monitors`,
@@ -860,8 +886,8 @@ export class BisibilityClient {
   }
 
   updateSitemapMonitor(
-    projectId: string,
-    monitorId: string,
+    projectId: ProjectId,
+    monitorId: ProjectId,
     input: UpdateSitemapMonitorInput,
     options?: RequestOptions,
   ) {
@@ -873,7 +899,7 @@ export class BisibilityClient {
   }
 
   listRankChecks(
-    keywordId: string,
+    keywordId: KeywordId,
     options?: ListRankChecksOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -896,7 +922,7 @@ export class BisibilityClient {
   }
 
   iterateRankChecks(
-    keywordId: string,
+    keywordId: KeywordId,
     options: ListRankChecksOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -906,7 +932,7 @@ export class BisibilityClient {
     );
   }
 
-  runRankCheck(keywordId: string, input?: RunRankCheckInput, options?: RunRankCheckOptions) {
+  runRankCheck(keywordId: KeywordId, input?: RunRankCheckInput, options?: RunRankCheckOptions) {
     const { async: runAsync, ...requestOptions } = options ?? {};
     const body = input && Object.keys(input).length ? input : undefined;
 
@@ -917,7 +943,7 @@ export class BisibilityClient {
     });
   }
 
-  getRankCheckResult(checkId: string, options?: RequestOptions) {
+  getRankCheckResult(checkId: RankCheckId, options?: RequestOptions) {
     return this.request<RankCheck>("GET", `/rank-checks/${encodedPathSegment(checkId)}`, options);
   }
 
@@ -925,7 +951,7 @@ export class BisibilityClient {
     return this.request<Signal>("POST", "/signals", { ...options, body: input });
   }
 
-  listSignals(projectId: string, options?: ListSignalsOptions, requestOptions?: RequestOptions) {
+  listSignals(projectId: ProjectId, options?: ListSignalsOptions, requestOptions?: RequestOptions) {
     const filters = options ?? {};
 
     return this.request<ListResponse<Signal>>(
@@ -946,7 +972,7 @@ export class BisibilityClient {
   }
 
   iterateSignals(
-    projectId: string,
+    projectId: ProjectId,
     options: ListSignalsOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -957,7 +983,7 @@ export class BisibilityClient {
   }
 
   listTrafficSnapshots(
-    projectId: string,
+    projectId: ProjectId,
     options: ListTrafficSnapshotsOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -978,7 +1004,7 @@ export class BisibilityClient {
   }
 
   listSearchPerformanceQueryStats(
-    projectId: string,
+    projectId: ProjectId,
     options: ListSearchPerformanceQueryStatsOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -998,7 +1024,7 @@ export class BisibilityClient {
     );
   }
 
-  syncProjectTraffic(projectId: string, options?: RequestOptions) {
+  syncProjectTraffic(projectId: ProjectId, options?: RequestOptions) {
     return this.request<TrafficSyncSummary>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/analytics/sync`,
@@ -1006,7 +1032,11 @@ export class BisibilityClient {
     );
   }
 
-  listAlertRules(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+  listAlertRules(
+    projectId: ProjectId,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
     const pagination = options ?? {};
 
     return this.request<ListResponse<AlertRule>>(
@@ -1023,7 +1053,7 @@ export class BisibilityClient {
   }
 
   iterateAlertRules(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -1033,7 +1063,7 @@ export class BisibilityClient {
     );
   }
 
-  createAlertRule(projectId: string, input: CreateAlertRuleInput, options?: RequestOptions) {
+  createAlertRule(projectId: ProjectId, input: CreateAlertRuleInput, options?: RequestOptions) {
     return this.request<AlertRule>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/alert-rules`,
@@ -1041,14 +1071,14 @@ export class BisibilityClient {
     );
   }
 
-  updateAlertRule(ruleId: string, input: UpdateAlertRuleInput, options?: RequestOptions) {
+  updateAlertRule(ruleId: AlertRuleId, input: UpdateAlertRuleInput, options?: RequestOptions) {
     return this.request<AlertRule>("PATCH", `/alert-rules/${encodedPathSegment(ruleId)}`, {
       ...options,
       body: input,
     });
   }
 
-  deleteAlertRule(ruleId: string, options?: RequestOptions) {
+  deleteAlertRule(ruleId: AlertRuleId, options?: RequestOptions) {
     return this.request<DeleteAlertRuleResponse>(
       "DELETE",
       `/alert-rules/${encodedPathSegment(ruleId)}`,
@@ -1057,7 +1087,7 @@ export class BisibilityClient {
   }
 
   listTriggeredAlerts(
-    projectId: string,
+    projectId: ProjectId,
     options?: PaginationOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -1077,7 +1107,7 @@ export class BisibilityClient {
   }
 
   iterateTriggeredAlerts(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -1087,7 +1117,7 @@ export class BisibilityClient {
     );
   }
 
-  muteTriggeredAlert(projectId: string, alertId: string, options?: RequestOptions) {
+  muteTriggeredAlert(projectId: ProjectId, alertId: AlertId, options?: RequestOptions) {
     return this.request<TriggeredAlertMuteResult>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/triggered-alerts/${encodedPathSegment(alertId)}/mute`,
@@ -1095,7 +1125,7 @@ export class BisibilityClient {
     );
   }
 
-  markProjectAlertsRead(projectId: string, options?: RequestOptions) {
+  markProjectAlertsRead(projectId: ProjectId, options?: RequestOptions) {
     return this.request<TriggeredAlertsReadResult>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/triggered-alerts/mark-read`,
@@ -1103,7 +1133,11 @@ export class BisibilityClient {
     );
   }
 
-  listTeamMembers(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+  listTeamMembers(
+    projectId: ProjectId,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
     const pagination = options ?? {};
 
     return this.request<ListResponse<TeamMember>>(
@@ -1120,7 +1154,7 @@ export class BisibilityClient {
   }
 
   iterateTeamMembers(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -1130,7 +1164,11 @@ export class BisibilityClient {
     );
   }
 
-  listTeamInvites(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+  listTeamInvites(
+    projectId: ProjectId,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
     const pagination = options ?? {};
 
     return this.request<ListResponse<TeamInvite>>(
@@ -1147,7 +1185,7 @@ export class BisibilityClient {
   }
 
   iterateTeamInvites(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -1157,7 +1195,7 @@ export class BisibilityClient {
     );
   }
 
-  createTeamInvite(projectId: string, input: CreateTeamInviteInput, options?: RequestOptions) {
+  createTeamInvite(projectId: ProjectId, input: CreateTeamInviteInput, options?: RequestOptions) {
     return this.request<CreatedTeamInvite>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/team/invites`,
@@ -1165,7 +1203,7 @@ export class BisibilityClient {
     );
   }
 
-  revokeTeamInvite(projectId: string, inviteId: string, options?: RequestOptions) {
+  revokeTeamInvite(projectId: ProjectId, inviteId: InviteId, options?: RequestOptions) {
     return this.request<RevokedTeamInvite>(
       "DELETE",
       `/projects/${encodedPathSegment(projectId)}/team/invites/${encodedPathSegment(inviteId)}`,
@@ -1173,7 +1211,7 @@ export class BisibilityClient {
     );
   }
 
-  revokeTeamInviteById(inviteId: string, options?: RequestOptions) {
+  revokeTeamInviteById(inviteId: InviteId, options?: RequestOptions) {
     return this.request<RevokedTeamInvite>(
       "DELETE",
       `/team/invites/${encodedPathSegment(inviteId)}`,
@@ -1181,7 +1219,7 @@ export class BisibilityClient {
     );
   }
 
-  resendTeamInvite(projectId: string, inviteId: string, options?: RequestOptions) {
+  resendTeamInvite(projectId: ProjectId, inviteId: InviteId, options?: RequestOptions) {
     return this.request<TeamInviteResendResult>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/team/invites/${encodedPathSegment(inviteId)}/resend`,
@@ -1190,8 +1228,8 @@ export class BisibilityClient {
   }
 
   updateTeamMemberRole(
-    projectId: string,
-    memberId: string,
+    projectId: ProjectId,
+    memberId: MembershipId,
     input: UpdateTeamMemberRoleInput,
     options?: RequestOptions,
   ) {
@@ -1202,7 +1240,7 @@ export class BisibilityClient {
     );
   }
 
-  removeTeamMember(projectId: string, memberId: string, options?: RequestOptions) {
+  removeTeamMember(projectId: ProjectId, memberId: MembershipId, options?: RequestOptions) {
     return this.request<TeamMemberMutationResult>(
       "DELETE",
       `/projects/${encodedPathSegment(projectId)}/team/members/${encodedPathSegment(memberId)}`,
@@ -1210,7 +1248,11 @@ export class BisibilityClient {
     );
   }
 
-  listProviders(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+  listProviders(
+    projectId: ProjectId,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
     const pagination = options ?? {};
 
     return this.request<ListResponse<Provider>>(
@@ -1227,7 +1269,7 @@ export class BisibilityClient {
   }
 
   iterateProviders(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -1238,7 +1280,7 @@ export class BisibilityClient {
   }
 
   connectProvider(
-    projectId: string,
+    projectId: ProjectId,
     providerId: string,
     input: ConnectProviderInput = {},
     options?: RequestOptions,
@@ -1253,7 +1295,7 @@ export class BisibilityClient {
   }
 
   testProviderConnection(
-    projectId: string,
+    projectId: ProjectId,
     providerId: string,
     input: TestProviderConnectionInput = {},
     options?: RequestOptions,
@@ -1266,7 +1308,7 @@ export class BisibilityClient {
   }
 
   updateProviderSettings(
-    projectId: string,
+    projectId: ProjectId,
     providerId: string,
     input: ProviderSettingsInput,
     options?: RequestOptions,
@@ -1279,7 +1321,7 @@ export class BisibilityClient {
   }
 
   setProviderEnabled(
-    projectId: string,
+    projectId: ProjectId,
     providerId: string,
     enabled: boolean,
     options?: RequestOptions,
@@ -1287,16 +1329,16 @@ export class BisibilityClient {
     return this.updateProviderSettings(projectId, providerId, { enabled }, options);
   }
 
-  enableProvider(projectId: string, providerId: string, options?: RequestOptions) {
+  enableProvider(projectId: ProjectId, providerId: string, options?: RequestOptions) {
     return this.setProviderEnabled(projectId, providerId, true, options);
   }
 
-  disableProvider(projectId: string, providerId: string, options?: RequestOptions) {
+  disableProvider(projectId: ProjectId, providerId: string, options?: RequestOptions) {
     return this.setProviderEnabled(projectId, providerId, false, options);
   }
 
   setProviderPriority(
-    projectId: string,
+    projectId: ProjectId,
     providerId: string,
     priority: number,
     options?: RequestOptions,
@@ -1305,7 +1347,7 @@ export class BisibilityClient {
   }
 
   setPrimaryProvider(
-    projectId: string,
+    projectId: ProjectId,
     providerId: string,
     primary = true,
     options?: RequestOptions,
@@ -1313,7 +1355,7 @@ export class BisibilityClient {
     return this.updateProviderSettings(projectId, providerId, { primary }, options);
   }
 
-  disconnectProvider(projectId: string, providerId: string, options?: RequestOptions) {
+  disconnectProvider(projectId: ProjectId, providerId: string, options?: RequestOptions) {
     return this.request<ProviderDisconnectResponse>(
       "DELETE",
       `/projects/${encodedPathSegment(projectId)}/providers/${encodedPathSegment(providerId)}`,
@@ -1321,7 +1363,11 @@ export class BisibilityClient {
     );
   }
 
-  listSavedViews(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+  listSavedViews(
+    projectId: ProjectId,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
     const pagination = options ?? {};
 
     return this.request<ListResponse<SavedView>>(
@@ -1338,7 +1384,7 @@ export class BisibilityClient {
   }
 
   iterateSavedViews(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -1348,7 +1394,7 @@ export class BisibilityClient {
     );
   }
 
-  createSavedView(projectId: string, input: CreateSavedViewInput, options?: RequestOptions) {
+  createSavedView(projectId: ProjectId, input: CreateSavedViewInput, options?: RequestOptions) {
     return this.request<SavedView>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/saved-views`,
@@ -1356,7 +1402,7 @@ export class BisibilityClient {
     );
   }
 
-  deleteSavedView(projectId: string, viewId: string, options?: RequestOptions) {
+  deleteSavedView(projectId: ProjectId, viewId: SavedViewId, options?: RequestOptions) {
     return this.request<DeleteSavedViewResponse>(
       "DELETE",
       `/projects/${encodedPathSegment(projectId)}/saved-views/${encodedPathSegment(viewId)}`,
@@ -1364,7 +1410,7 @@ export class BisibilityClient {
     );
   }
 
-  deleteSavedViewById(viewId: string, options?: RequestOptions) {
+  deleteSavedViewById(viewId: SavedViewId, options?: RequestOptions) {
     return this.request<DeleteSavedViewResponse>(
       "DELETE",
       `/saved-views/${encodedPathSegment(viewId)}`,
@@ -1372,7 +1418,11 @@ export class BisibilityClient {
     );
   }
 
-  listCompetitors(projectId: string, options?: PaginationOptions, requestOptions?: RequestOptions) {
+  listCompetitors(
+    projectId: ProjectId,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
     const pagination = options ?? {};
 
     return this.request<CompetitorListResponse>(
@@ -1389,7 +1439,7 @@ export class BisibilityClient {
   }
 
   iterateCompetitors(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -1399,7 +1449,7 @@ export class BisibilityClient {
     );
   }
 
-  addCompetitor(projectId: string, input: AddCompetitorInput, options?: RequestOptions) {
+  addCompetitor(projectId: ProjectId, input: AddCompetitorInput, options?: RequestOptions) {
     return this.request<Competitor>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/competitors`,
@@ -1407,7 +1457,7 @@ export class BisibilityClient {
     );
   }
 
-  removeCompetitor(projectId: string, competitorId: string, options?: RequestOptions) {
+  removeCompetitor(projectId: ProjectId, competitorId: CompetitorId, options?: RequestOptions) {
     return this.request<RemoveCompetitorResponse>(
       "DELETE",
       `/projects/${encodedPathSegment(projectId)}/competitors/${encodedPathSegment(competitorId)}`,
@@ -1415,7 +1465,7 @@ export class BisibilityClient {
     );
   }
 
-  removeCompetitorById(competitorId: string, options?: RequestOptions) {
+  removeCompetitorById(competitorId: CompetitorId, options?: RequestOptions) {
     return this.request<RemoveCompetitorResponse>(
       "DELETE",
       `/competitors/${encodedPathSegment(competitorId)}`,
@@ -1423,7 +1473,7 @@ export class BisibilityClient {
     );
   }
 
-  getNotificationPreferences(projectId: string, options?: RequestOptions) {
+  getNotificationPreferences(projectId: ProjectId, options?: RequestOptions) {
     return this.request<NotificationPreferences>(
       "GET",
       `/projects/${encodedPathSegment(projectId)}/notification-preferences`,
@@ -1432,7 +1482,7 @@ export class BisibilityClient {
   }
 
   updateNotificationPreferences(
-    projectId: string,
+    projectId: ProjectId,
     input: UpdateNotificationPreferencesInput,
     options?: RequestOptions,
   ) {
@@ -1444,7 +1494,7 @@ export class BisibilityClient {
   }
 
   listMigrationTokens(
-    projectId: string,
+    projectId: ProjectId,
     options?: PaginationOptions,
     requestOptions?: RequestOptions,
   ) {
@@ -1464,7 +1514,7 @@ export class BisibilityClient {
   }
 
   iterateMigrationTokens(
-    projectId: string,
+    projectId: ProjectId,
     options: PaginationOptions = {},
     requestOptions?: RequestOptions,
   ) {
@@ -1475,7 +1525,7 @@ export class BisibilityClient {
   }
 
   mintMigrationToken(
-    projectId: string,
+    projectId: ProjectId,
     input: MintMigrationTokenInput = {},
     options?: RequestOptions,
   ) {
@@ -1486,7 +1536,7 @@ export class BisibilityClient {
     );
   }
 
-  revokeMigrationToken(projectId: string, tokenId: string, options?: RequestOptions) {
+  revokeMigrationToken(projectId: ProjectId, tokenId: MigrationTokenId, options?: RequestOptions) {
     return this.request<RevokedMigrationToken>(
       "DELETE",
       `/projects/${encodedPathSegment(projectId)}/migration-tokens/${encodedPathSegment(tokenId)}`,
@@ -1494,7 +1544,7 @@ export class BisibilityClient {
     );
   }
 
-  revokeMigrationTokenById(tokenId: string, options?: RequestOptions) {
+  revokeMigrationTokenById(tokenId: MigrationTokenId, options?: RequestOptions) {
     return this.request<RevokedMigrationToken>(
       "DELETE",
       `/migration-tokens/${encodedPathSegment(tokenId)}`,
@@ -1524,7 +1574,7 @@ export class BisibilityClient {
   }
 
   uploadCloudImportChunk(
-    sessionId: string,
+    sessionId: CloudImportJobId,
     index: number,
     input: CloudImportUploadChunk,
     options?: UploadCloudImportChunkOptions,
@@ -1542,7 +1592,7 @@ export class BisibilityClient {
     );
   }
 
-  finalizeCloudImportSession(sessionId: string, options?: RequestOptions) {
+  finalizeCloudImportSession(sessionId: CloudImportJobId, options?: RequestOptions) {
     return this.request<CloudImportFinalizeResponse>(
       "POST",
       `/cloud/import/sessions/${encodedPathSegment(sessionId)}/finalize`,
@@ -1593,6 +1643,14 @@ export class BisibilityClient {
     options: InternalRequestOptions = {},
     statusRef?: { status: number },
   ): Promise<T | undefined> {
+    try {
+      validatePublicIdRequest(path, { body: options.body, query: options.query });
+    } catch (cause) {
+      throw new BisibilityConfigurationError(
+        cause instanceof Error ? cause.message : "Invalid public ID request contract.",
+      );
+    }
+
     const fetchImpl = this.#fetchImpl ?? globalThis.fetch;
     const url = this.buildUrl(path, options.query);
     if (!fetchImpl) {
@@ -1607,6 +1665,12 @@ export class BisibilityClient {
     const headers = mergeHeaders(this.#defaultHeaders, options.headers);
     if (this.#projectId !== undefined && !headers.has("X-Bisibility-Project")) {
       headers.set("X-Bisibility-Project", this.#projectId);
+    }
+    const projectHeader = headers.get("X-Bisibility-Project");
+    if (projectHeader !== null && !isPublicIdOfType(projectHeader, "prj")) {
+      throw new BisibilityConfigurationError(
+        "X-Bisibility-Project must match prj_[a-z][a-z0-9]{23}.",
+      );
     }
     if (options.auth !== false) {
       headers.set("Authorization", `Bearer ${this.#apiKey}`);
@@ -1693,7 +1757,7 @@ export class BisibilityClient {
         return response.text() as Promise<T>;
       }
 
-      return this.jsonFromResponse<T>(response, method, url);
+      return this.jsonFromResponse<T>(response, method, url, path);
     }
   }
 
@@ -1701,14 +1765,16 @@ export class BisibilityClient {
     response: Response,
     method: string,
     url: string,
+    path: string,
   ): Promise<T | undefined> {
     const body = await response.text();
     if (!body) {
       return undefined;
     }
 
+    let parsed: T;
     try {
-      return JSON.parse(body) as T;
+      parsed = JSON.parse(body) as T;
     } catch (error) {
       throw new BisibilityResponseError("Bisibility API returned invalid JSON.", {
         body,
@@ -1718,6 +1784,23 @@ export class BisibilityClient {
         url,
       });
     }
+
+    try {
+      validatePublicIdResponse(path, parsed, method);
+    } catch (cause) {
+      throw new BisibilityResponseError(
+        "Bisibility API returned an invalid public ID response contract.",
+        {
+          body,
+          cause,
+          method,
+          status: response.status,
+          url,
+        },
+      );
+    }
+
+    return parsed;
   }
 
   private async errorFromResponse(response: Response, method: string, url: string) {

@@ -1,3 +1,29 @@
+import type { PublicIdForPrefix } from "./public-id.js";
+
+export type AlertId = PublicIdForPrefix<"alert">;
+export type ApiKeyId = PublicIdForPrefix<"key">;
+export type AuditId = PublicIdForPrefix<"audit">;
+export type CloudImportJobId = PublicIdForPrefix<"job">;
+export type CompetitorId = PublicIdForPrefix<"comp">;
+export type ConnectionId = PublicIdForPrefix<"conn">;
+export type IngestHookId = PublicIdForPrefix<"hook">;
+export type InviteId = PublicIdForPrefix<"invite">;
+export type KeywordId = PublicIdForPrefix<"kw">;
+export type MembershipId = PublicIdForPrefix<"member">;
+export type MigrationTokenId = PublicIdForPrefix<"mtok">;
+export type NotificationId = PublicIdForPrefix<"notif">;
+export type PersonalAccessTokenId = PublicIdForPrefix<"pat">;
+export type ProjectId = PublicIdForPrefix<"prj">;
+export type RankCheckId = PublicIdForPrefix<"check">;
+export type SavedKeywordId = PublicIdForPrefix<"skw">;
+export type SavedViewId = PublicIdForPrefix<"view">;
+export type SessionId = PublicIdForPrefix<"ses">;
+export type SignalId = PublicIdForPrefix<"sig">;
+export type TagId = PublicIdForPrefix<"tag">;
+export type UserId = PublicIdForPrefix<"usr">;
+export type WebhookId = PublicIdForPrefix<"webhook">;
+export type AlertRuleId = PublicIdForPrefix<"rule">;
+
 export type Device = "desktop" | "mobile";
 
 export type RankCheckFrequency =
@@ -47,7 +73,7 @@ export type ProjectWriteMode = "active" | "migration_hold" | "migrated";
 export interface Project {
   created_at: string;
   domain: string;
-  id: string;
+  id: ProjectId;
   name: string;
   updated_at: string;
   write_mode: ProjectWriteMode;
@@ -68,7 +94,7 @@ export interface ProjectDefaults {
   last_checked_at: string | null;
   location_key: string;
   next_check_at: string | null;
-  project_id: string;
+  project_id: ProjectId;
   serp_depth: number;
   serp_stop_on_match: boolean;
   source: "derived" | "explicit" | "fallback";
@@ -111,7 +137,7 @@ export interface ProjectOverview {
   last_check_at: string | null;
   next_check_at: string | null;
   position_distribution: ProjectOverviewPositionDistribution[];
-  project_id: string;
+  project_id: ProjectId;
   top_10_count: number | null;
   top_10_delta: number | null;
   top_100_count: number | null;
@@ -133,7 +159,7 @@ export interface KeywordMatchMarket {
 }
 
 export interface KeywordMatch {
-  keyword_id: string;
+  keyword_id: KeywordId;
   latest_position: number | null;
   market: KeywordMatchMarket;
   /** Trimmed, lowercase request text used to match this keyword. */
@@ -167,7 +193,6 @@ export interface LocationSuggestion {
   country_code: string;
   display_name: string;
   hl: string;
-  id: string;
   kind: LocationKind;
   language_label: string;
   location_key: string;
@@ -194,7 +219,7 @@ export interface CreateProjectInput {
 
 export interface ApiKey {
   created_at: string;
-  id: string;
+  id: ApiKeyId;
   last_used_at: string | null;
   name: string;
   prefix: string;
@@ -210,14 +235,14 @@ export type MembershipRole = "admin" | "auditor" | "member" | "owner" | "viewer"
 
 export interface MeProject {
   domain: string;
-  id: string;
+  id: ProjectId;
   name: string;
   role: MembershipRole;
 }
 
 export interface Me {
   email: string;
-  id: string;
+  id: UserId;
   name: string;
   projects: MeProject[];
 }
@@ -231,7 +256,7 @@ export type PersonalAccessTokenScope = "admin" | "read" | "write";
 export interface PersonalAccessToken {
   created_at: string;
   expires_at: string | null;
-  id: string;
+  id: PersonalAccessTokenId;
   last_used_at: string | null;
   name: string;
   prefix: string;
@@ -256,7 +281,7 @@ export interface Webhook {
   created_at: string;
   description: string | null;
   enabled: boolean;
-  id: string;
+  id: WebhookId;
   last_delivery_at: string | null;
   updated_at: string;
   url: string;
@@ -291,12 +316,12 @@ export interface Keyword {
   country: string;
   created_at: string;
   device: Device;
-  id: string;
+  id: KeywordId;
   intent: string | null;
   latest_position: number | null;
   location: string;
   previous_position: number | null;
-  project_id: string;
+  project_id: ProjectId;
   ranking_url: string | null;
   schedule: KeywordSchedule | null;
   tags: string[];
@@ -375,28 +400,28 @@ export type KeywordBulkOperation =
 
 export type KeywordBulkInput =
   | {
-      keyword_ids: readonly string[];
+      keyword_ids: readonly KeywordId[];
       operation: "add_tags" | "remove_tags";
       tags: readonly string[];
     }
   | {
-      keyword_ids: readonly string[];
+      keyword_ids: readonly KeywordId[];
       operation: "delete";
     }
   | {
-      keyword_ids: readonly string[];
+      keyword_ids: readonly KeywordId[];
       operation: "set_frequency";
       frequency?: RankCheckFrequency;
       schedule?: KeywordScheduleInput;
     }
   | {
-      keyword_ids: readonly string[];
+      keyword_ids: readonly KeywordId[];
       operation: "set_target_url";
       target_url?: string | null;
     };
 
 export interface KeywordBulkItemResult {
-  keyword_id: string;
+  keyword_id: KeywordId;
   status: OpenString<"deleted" | "not_found" | "updated">;
 }
 
@@ -434,7 +459,7 @@ export interface RankedKeywordSuggestion {
 }
 
 export interface RankedKeywordConnection {
-  id: string;
+  id: ConnectionId;
   label: string;
   provider: "dataforseo";
 }
@@ -450,7 +475,7 @@ export interface RankedKeywordSuggestionsResponse {
 }
 
 export interface ListRankedKeywordSuggestionsOptions {
-  connectionId?: string;
+  connectionId?: ConnectionId;
   fresh?: boolean;
   limit?: number;
   offset?: number;
@@ -483,7 +508,7 @@ export interface KeywordMetricsRow extends KeywordMetrics {
 }
 
 export interface KeywordResearchConnection {
-  id: string;
+  id: ConnectionId;
   label: string;
   provider: string;
 }
@@ -615,7 +640,7 @@ export interface KeywordResearchResponse {
 }
 
 export interface ResearchKeywordsOptions {
-  connectionId?: string;
+  connectionId?: ConnectionId;
   estimateOnly?: boolean;
   fresh?: boolean;
   includeClickstream?: boolean;
@@ -626,7 +651,7 @@ export interface ResearchKeywordsOptions {
 }
 
 export interface GetKeywordMetricsInput {
-  connection_id?: string;
+  connection_id?: ConnectionId;
   estimate_only?: boolean;
   fresh?: boolean;
   include_clickstream?: boolean;
@@ -655,9 +680,9 @@ export type RankHistoryExportGranularity = "daily" | "weekly";
 
 export interface RankHistoryExportRow {
   checked_at: string;
-  id: string;
+  id: RankCheckId;
   keyword: string;
-  keyword_id: string;
+  keyword_id: KeywordId;
   position: number | null;
   previous_position: number | null;
   ranking_url: string | null;
@@ -667,7 +692,7 @@ export type RankHistoryExportResponse = ListResponse<RankHistoryExportRow>;
 
 interface RankHistoryExportOptions {
   granularity?: RankHistoryExportGranularity;
-  keywordIds?: readonly string[];
+  keywordIds?: readonly KeywordId[];
   range?: RankHistoryExportRange;
 }
 
@@ -683,16 +708,15 @@ export type SitemapMonitorStatus = "active" | "disabled" | "pending";
 
 export interface SitemapMonitorSnapshot {
   fetched_at: string;
-  id: string;
   sitemap_url: string;
   url_count: number;
 }
 
 export interface SitemapMonitor {
   enabled: boolean;
-  id: string;
+  id: ProjectId;
   latest_snapshot: SitemapMonitorSnapshot | null;
-  project_id: string;
+  project_id: ProjectId;
   sitemap_url: string | null;
   status: SitemapMonitorStatus;
 }
@@ -715,8 +739,8 @@ export interface RankCheck {
   checked_at: string;
   cost_cents: number | null;
   error: string | null;
-  id: string;
-  keyword_id: string;
+  id: RankCheckId;
+  keyword_id: KeywordId;
   position: number | null;
   previous_position: number | null;
   provider: string;
@@ -752,16 +776,7 @@ export type AlertTargetType = "all" | "keyword" | "tag";
 
 export type AlertSeverity = "info" | "urgent" | "warning";
 
-export interface AlertRuleTarget {
-  created_at?: string;
-  id: string;
-  keyword_id?: string | null;
-  rule_id?: string;
-  tag_id?: string | null;
-  updated_at?: string;
-}
-
-export interface AlertRule {
+interface AlertRuleBase {
   change_pct?: number | string | null;
   channel?: string;
   channels: AlertChannel[];
@@ -769,38 +784,43 @@ export interface AlertRule {
   condition_type: AlertConditionType;
   competitor_domain?: string | null;
   created_at?: string;
-  created_by_id?: string | null;
   enabled: boolean;
   fires?: string;
-  id: string;
+  id: AlertRuleId;
   name: string;
   period?: string;
-  project_id?: string;
+  recipient_ids: UserId[];
   scope?: string;
   serp_feature?: string | null;
   severity?: AlertSeverity;
   status?: OpenString<"active" | "paused">;
-  target_ids?: string[];
-  target_type: AlertTargetType;
-  targets?: AlertRuleTarget[];
   threshold_position?: number | null;
   top_n?: number | null;
   updated_at?: string;
 }
 
-export interface AlertRuleInput {
+export type AlertRule =
+  | (AlertRuleBase & { target_ids: KeywordId[]; target_type: "keyword" })
+  | (AlertRuleBase & { target_ids: TagId[]; target_type: "tag" })
+  | (AlertRuleBase & { target_ids: []; target_type: "all" });
+
+interface AlertRuleInputBase {
   change_pct?: number | null;
   channels?: readonly AlertChannel[];
   condition_type: AlertConditionType;
   competitor_domain?: string | null;
   enabled?: boolean;
   name: string;
+  recipient_ids?: readonly UserId[];
   serp_feature?: string | null;
-  target_ids?: readonly string[];
-  target_type?: AlertTargetType;
   threshold_position?: number | null;
   top_n?: number | null;
 }
+
+export type AlertRuleInput =
+  | (AlertRuleInputBase & { target_ids?: readonly []; target_type?: "all" })
+  | (AlertRuleInputBase & { target_ids: readonly KeywordId[]; target_type: "keyword" })
+  | (AlertRuleInputBase & { target_ids: readonly TagId[]; target_type: "tag" });
 
 export type CreateAlertRuleInput = AlertRuleInput;
 
@@ -815,7 +835,7 @@ export interface TriggeredAlert {
   ctas: string[];
   current: string;
   headline: string;
-  id: string;
+  id: AlertId;
   keyword: string;
   previous: string;
   rule: string;
@@ -840,7 +860,7 @@ export type TeamRoleLabel = "Admin" | "Editor" | "Owner" | "Viewer";
 export interface TeamMember {
   color: OpenString<"accent" | "blue" | "purple">;
   email: string;
-  id: string;
+  id: MembershipId;
   initials: string;
   name: string;
   role: TeamRoleLabel;
@@ -850,7 +870,7 @@ export interface TeamMember {
 export interface TeamInvite {
   email: string;
   expires_label: string;
-  id: string;
+  id: InviteId;
   invited_label: string;
   role: TeamRoleLabel;
   role_value: Exclude<TeamRole, "owner">;
@@ -863,12 +883,12 @@ export interface CreateTeamInviteInput {
 
 export interface CreatedTeamInvite {
   expires_at: string;
-  id: string;
+  id: InviteId;
   invite_link: string;
 }
 
 export interface RevokedTeamInvite {
-  id: string;
+  id: InviteId;
 }
 
 export type AssignableTeamRole = Exclude<TeamRole, "owner">;
@@ -878,17 +898,17 @@ export interface UpdateTeamMemberRoleInput {
 }
 
 export interface TeamMemberRoleResult {
-  id: string;
+  id: MembershipId;
   role: AssignableTeamRole;
 }
 
 export interface TeamMemberMutationResult {
-  id: string;
+  id: MembershipId;
 }
 
 export interface TeamInviteResendResult {
   expires_at: string;
-  id: string;
+  id: InviteId;
   invite_link: string;
 }
 
@@ -993,12 +1013,12 @@ export interface ProviderConnection {
   created_at: string;
   credentials_hash?: string | null;
   enabled: boolean;
-  id: string;
+  id: ConnectionId;
   is_primary: boolean;
   kind: ProviderKind;
   last_used_at: string | null;
   priority: number;
-  project_id: string;
+  project_id: ProjectId;
   provider: OpenString<ProviderId>;
   status: ProviderStatus;
   updated_at: string;
@@ -1050,8 +1070,8 @@ export interface CreateSavedViewInput {
 export interface SavedView {
   config: SavedViewConfig;
   created_at: string;
-  created_by_id: string | null;
-  id: string;
+  created_by_id: UserId | null;
+  id: SavedViewId;
   name: string;
 }
 
@@ -1061,7 +1081,7 @@ export interface DeleteSavedViewResponse {
 
 export interface Competitor {
   domain: string;
-  id: string;
+  id: CompetitorId;
   initials?: string;
   label: string | null;
 }
@@ -1079,7 +1099,7 @@ export type CompetitorKind = "Managed" | "You";
 
 export interface CompetitorColumn {
   domain: string;
-  id?: string;
+  id?: CompetitorId;
   kind: CompetitorKind;
   label: string;
 }
@@ -1087,7 +1107,7 @@ export interface CompetitorColumn {
 export interface CompetitorShare {
   color: string;
   domain: string;
-  id?: string;
+  id?: CompetitorId;
   initials: string;
   kind: CompetitorKind;
   label: string;
@@ -1098,8 +1118,12 @@ export interface CompetitorShare {
 export interface HeadToHeadRow {
   gap: number | null;
   keyword: string;
-  ranks: Record<string, number | null>;
+  ranks: CompetitorRankMap;
 }
+
+export type CompetitorRankMap = { you?: number | null } & Partial<
+  Record<CompetitorId, number | null>
+>;
 
 export interface CompetitorMarket {
   checked_keyword_count: number;
@@ -1144,7 +1168,7 @@ export interface NotificationPreferences {
   import_in_app: boolean;
   invite_email: boolean;
   invite_in_app: boolean;
-  project_id: string;
+  project_id: ProjectId;
   slack_available?: boolean;
   webhook_available?: boolean;
 }
@@ -1178,10 +1202,8 @@ export interface PageTrafficSnapshot {
   created_at: string;
   date: string;
   engagement_rate: number | null;
-  id: string;
   key_events: number | null;
   path: string;
-  project_id: string;
   provider: string;
   scroll_depth: number | null;
   sessions: number;
@@ -1198,7 +1220,7 @@ export interface PageTrafficSnapshotsResponse {
 }
 
 export interface ListSearchPerformanceQueryStatsOptions {
-  connectionId?: string;
+  connectionId?: ConnectionId;
   endDate: Date | string;
   limit?: number;
   query?: string;
@@ -1206,7 +1228,7 @@ export interface ListSearchPerformanceQueryStatsOptions {
 }
 
 export interface AnalyticsConnection {
-  id: string;
+  id: ConnectionId;
   label: string;
   provider: string;
 }
@@ -1233,7 +1255,7 @@ export type TrafficSyncRunStatus =
   | "not_applicable";
 
 export interface TrafficSyncRun {
-  connection_id: string;
+  connection_id: ConnectionId;
   error?: string;
   error_class?: string;
   provider: string;
@@ -1255,7 +1277,7 @@ export interface TrafficSyncSummary {
   connections: number;
   keyword_snapshots: number;
   page_snapshots: number;
-  project_id: string;
+  project_id: ProjectId;
   runs: TrafficSyncRun[];
   skipped: TrafficSyncSkippedConnection[];
 }
@@ -1269,7 +1291,7 @@ export interface CloudImportJob {
   created_at: string | null;
   error: string | null;
   finished_at: string | null;
-  id: string | null;
+  id: CloudImportJobId | null;
   progress: number;
   started_at: string | null;
   state: CloudImportState;
@@ -1282,7 +1304,7 @@ export interface ActiveMigrationToken {
     name: string;
   };
   expires_at: string;
-  id: string;
+  id: MigrationTokenId;
   scope: MigrationScope;
   single_use: boolean;
 }
@@ -1297,7 +1319,7 @@ export interface MintMigrationTokenInput {
 }
 
 export interface RevokedMigrationToken {
-  id: string;
+  id: MigrationTokenId;
   revoked_at: string;
 }
 
@@ -1309,7 +1331,7 @@ export interface MigrationTokenListResponse extends ListResponse<ActiveMigration
   meta: MigrationTokenListMeta;
 }
 
-export type CloudImportSchemaVersion = 1 | 2 | 3;
+export type CloudImportSchemaVersion = 4;
 
 export type CloudImportLocation =
   | "Australia"
@@ -1354,25 +1376,24 @@ export interface CloudImportRankingHistory {
 }
 
 export interface CloudImportKeyword {
-  country?: CloudImportLocation;
-  device?: Device;
-  id?: string;
-  keyword?: string;
-  location?: CloudImportLocation;
+  device: Device;
+  id: KeywordId;
+  keyword: string;
+  location: CloudImportLocation;
   rankingHistory?: CloudImportRankingHistory[];
   tags?: string[];
   target_url?: string | null;
-  targetUrl?: string | null;
-  text?: string;
 }
 
 export interface CloudImportCompetitor {
   domain: string;
+  id: CompetitorId;
   label?: string | null;
 }
 
 export interface CloudImportSavedView {
   config?: unknown;
+  id: SavedViewId;
   name: string;
   surface?: "competitors" | "keywords";
 }
@@ -1382,113 +1403,90 @@ export type CloudImportAlertChannel = "email" | "slack" | "webhook";
 export type CloudImportAlertConditionType =
   | "change_pct"
   | "competitor_overtake"
+  | "ctr_drop"
+  | "downtrend"
   | "enters_top_n"
   | "exits_top_n"
+  | "position_drop"
   | "serp_feature"
-  | "threshold";
+  | "threshold"
+  | "url_mismatch";
 
 export type CloudImportAlertTargetType = "all" | "keyword" | "tag";
 
-export interface CloudImportAlertRuleTarget {
+export interface CloudImportKeywordAlertTarget {
   device?: Device;
   keyword?: string;
-  keyword_id?: string;
-  keywordId?: string;
+  keyword_id: KeywordId;
   location?: CloudImportLocation;
-  tag?: string;
-  tag_id?: string;
-  tagId?: string;
-  type?: "keyword" | "tag";
+  type: "keyword";
 }
+
+export interface CloudImportTagAlertTarget {
+  tag: string;
+  type: "tag";
+}
+
+export type CloudImportAlertRuleTarget = CloudImportKeywordAlertTarget | CloudImportTagAlertTarget;
 
 export interface CloudImportAlertRule {
   change_pct?: number | null;
-  changePct?: number | null;
   channels?: CloudImportAlertChannel[];
   competitor_domain?: string | null;
-  competitorDomain?: string | null;
   condition_type?: CloudImportAlertConditionType;
-  conditionType?: CloudImportAlertConditionType;
+  drop_positions?: number | null;
   enabled?: boolean;
+  id: AlertRuleId;
   name: string;
   serp_feature?: string | null;
-  serpFeature?: string | null;
   target_type?: CloudImportAlertTargetType;
   targets?: CloudImportAlertRuleTarget[];
-  targetType?: CloudImportAlertTargetType;
   threshold_position?: number | null;
-  thresholdPosition?: number | null;
   top_n?: number | null;
-  topN?: number | null;
 }
 
 export interface CloudImportNotificationPreference {
   alert_email?: boolean;
   alert_in_app?: boolean;
-  alertEmail?: boolean;
-  alertInApp?: boolean;
   check_email?: boolean;
   check_in_app?: boolean;
-  checkEmail?: boolean;
-  checkInApp?: boolean;
   import_email?: boolean;
   import_in_app?: boolean;
-  importEmail?: boolean;
-  importInApp?: boolean;
   invite_email?: boolean;
   invite_in_app?: boolean;
-  inviteEmail?: boolean;
-  inviteInApp?: boolean;
-}
-
-export interface CloudImportTopLevelRankCheck {
-  checked_at?: string;
-  checkedAt?: string;
-  keyword?: string;
-  keyword_id?: string;
-  keywordId?: string;
-  position?: number | null;
-  previous_position?: number | null;
-  previousPosition?: number | null;
-  ranking_url?: string | null;
-  rankingUrl?: string | null;
-  text?: string;
+  report_email?: boolean;
 }
 
 export type CloudImportScope = "current" | "history";
 
 export interface CloudImportPackage {
-  alert_rules?: CloudImportAlertRule[];
-  alertRules?: CloudImportAlertRule[];
-  competitors?: CloudImportCompetitor[];
-  exportedAt?: string;
-  keywords?: CloudImportKeyword[];
-  notification_preferences?: CloudImportNotificationPreference[];
-  notificationPreferences?: CloudImportNotificationPreference[];
-  projectId?: string;
-  rank_checks?: CloudImportTopLevelRankCheck[];
-  saved_views?: CloudImportSavedView[];
-  savedViews?: CloudImportSavedView[];
+  alert_rules: CloudImportAlertRule[];
+  competitors: CloudImportCompetitor[];
+  exported_at?: string;
+  keywords: CloudImportKeyword[];
+  notification_preferences: CloudImportNotificationPreference[];
+  project_id: ProjectId;
+  saved_views: CloudImportSavedView[];
   scope?: CloudImportScope;
-  version?: number;
-  [key: string]: unknown;
+  version: CloudImportSchemaVersion;
 }
 
 export type CloudImportCounts = Record<string, number>;
 
 export interface CloudImportFinalizeResponse {
   counts: CloudImportCounts;
-  job_id: string;
+  job_id: CloudImportJobId;
   state: "done";
 }
 
 export interface CloudImportSessionCreate {
   chunk_count: number;
+  source_project_id: ProjectId;
   totals?: {
     keywords?: number;
     rank_checks?: number;
   };
-  version: 3;
+  version: CloudImportSchemaVersion;
 }
 
 export interface CloudImportSessionCreateResponse {
@@ -1497,7 +1495,7 @@ export interface CloudImportSessionCreateResponse {
     max_history_rows: number;
     max_keywords: number;
   };
-  session_id: string;
+  session_id: CloudImportJobId;
   state: "receiving";
 }
 
@@ -1509,15 +1507,10 @@ export interface CloudImportSourceKeyword {
 
 export interface CloudImportSessionSections {
   alert_rules?: CloudImportAlertRule[];
-  alertRules?: CloudImportAlertRule[];
   competitors?: CloudImportCompetitor[];
   notification_preferences?: CloudImportNotificationPreference[];
-  notificationPreferences?: CloudImportNotificationPreference[];
   saved_views?: CloudImportSavedView[];
-  savedViews?: CloudImportSavedView[];
-  source_keyword_ids?: Record<string, CloudImportSourceKeyword>;
-  sourceKeywordIds?: Record<string, CloudImportSourceKeyword>;
-  [key: string]: unknown;
+  source_keyword_ids?: Partial<Record<KeywordId, CloudImportSourceKeyword>>;
 }
 
 export interface CloudImportKeywordsChunk {
@@ -1563,11 +1556,11 @@ export type SignalSeverity = "critical" | "info" | "warning";
 export interface Signal {
   created_at: string;
   happened_at: string;
-  id: string;
-  keyword_id: string | null;
+  id: SignalId;
+  keyword_id: KeywordId | null;
   payload: JsonObject | null;
-  project_id: string;
-  public_id: string;
+  project_id: ProjectId;
+  public_id: SignalId;
   severity: SignalSeverity;
   source: SignalSource;
   type: string;
@@ -1577,7 +1570,7 @@ export interface Signal {
 export interface CreateSignalInput {
   /** ISO-8601 date-time when the signal happened. Defaults to now on the server. */
   happened_at?: string;
-  keyword_id?: string;
+  keyword_id?: KeywordId;
   /** JSON object payload. Ingestion rejects serialized payloads above 8KB. */
   payload?: JsonObject;
   severity?: SignalSeverity;
@@ -1718,10 +1711,10 @@ export interface BisibilityClientConfig {
   /** Number of retries after the initial attempt. Defaults to 2; 0 disables retries. */
   maxRetries?: number;
   /**
-   * Project id or public id sent as the X-Bisibility-Project header on every request.
+   * Project public ID sent as the X-Bisibility-Project header on every request.
    * Targets personal access token requests at a project on routes without one in the path.
    */
-  projectId?: string;
+  projectId?: ProjectId;
   /** Per-attempt timeout in milliseconds. Defaults to 30 seconds; null disables it. */
   timeout?: number | null;
 }

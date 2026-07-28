@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> **Status:** Published on npm as v0.3.1.
+> **Status:** Published on npm as v0.4.0.
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -76,7 +76,7 @@ to send `X-Bisibility-Project` on project-implicit routes:
 ```ts
 const bisibility = new BisibilityClient({
   apiKey: process.env.BISIBILITY_PERSONAL_ACCESS_TOKEN,
-  projectId: "prj_abc123"
+  projectId: "prj_a00000000000000000000000"
 });
 
 const me = await bisibility.getMe();
@@ -120,6 +120,22 @@ await bisibility.listProjects({
 
 Without an explicit timeout or signal, every attempt has a 30-second timeout. Set `timeout: null`
 on the client or an individual request to opt out.
+
+## Public resource IDs
+
+Every resource identifier accepted or returned by the SDK uses public ID v2. The
+format is a lowercase resource prefix, an underscore, and a 24-character CUID2
+suffix: `prefix_[a-z][a-z0-9]{23}`. For example, a project ID is
+`prj_a00000000000000000000000` and a keyword ID is
+`kw_b00000000000000000000000`.
+
+The SDK rejects raw database IDs, legacy IDs, mixed-case values, and a valid ID
+with the wrong resource prefix before sending a request. `PUBLIC_ID_PREFIXES`,
+`isPublicIdOfType`, and resource-specific types such as `ProjectId`, `KeywordId`,
+and `WebhookId` are exported for callers that build typed integrations.
+
+Locations are identified by `location_key`; they do not expose a location ID.
+Cloud import and export payloads use schema version 4 only.
 
 ## Methods
 
@@ -285,7 +301,7 @@ application logs.
 import { BisibilityApiError } from "@bisibility/sdk";
 
 try {
-  await bisibility.getKeyword("kw_missing");
+  await bisibility.getKeyword("kw_z00000000000000000000000");
 } catch (error) {
   if (error instanceof BisibilityApiError) {
     console.error(error.status, error.problem?.detail);

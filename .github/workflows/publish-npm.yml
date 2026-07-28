@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "v*.*.*"
+  # Recovery path when an atomic branch-plus-tag push does not emit a tag push event.
+  # Dispatch this workflow against the release tag; the version check rejects any other ref.
+  workflow_dispatch:
 
 permissions:
   contents: read

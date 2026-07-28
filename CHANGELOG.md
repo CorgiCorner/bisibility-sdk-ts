@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 - 2026-07-28
+
+- Breaking for typed consumers: resource identifiers now use exported public ID v2 types instead
+  of arbitrary strings, and malformed or mismatched IDs are rejected before a request is sent.
+- Added response validation for public IDs so invalid resource identifiers returned by the API
+  fail with a typed SDK error instead of entering application state.
+- Breaking for cloud-import consumers: aligned package, session, chunk, compatibility, and response
+  types with migration schema v4, including snake_case fields, typed IDs, and required arrays.
+
 ## 0.3.1 - 2026-07-28
 
 - Added nullable `ranking_url` to `KeywordMatch`, containing the URL that ranked at
