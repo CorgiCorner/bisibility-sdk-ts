@@ -32,6 +32,7 @@ import type {
   ConnectProviderInput,
   CostEstimate,
   CreateAlertRuleInput,
+  CreateApiKeyInput,
   CreateKeywordsInput,
   CreateKeywordsResponse,
   CreateMyTokenInput,
@@ -66,6 +67,7 @@ import type {
   ListRankChecksOptions,
   ListRankedKeywordSuggestionsOptions,
   ListResponse,
+  ListSavedViewsOptions,
   ListSearchPerformanceQueryStatsOptions,
   ListSignalsOptions,
   ListTrafficSnapshotsOptions,
@@ -536,7 +538,7 @@ export class BisibilityClient {
     );
   }
 
-  createApiKey(input: { name: string }, options?: RequestOptions) {
+  createApiKey(input: CreateApiKeyInput, options?: RequestOptions) {
     return this.request<CreatedApiKey>("POST", "/api-keys", { ...options, body: input });
   }
 
@@ -1365,7 +1367,7 @@ export class BisibilityClient {
 
   listSavedViews(
     projectId: ProjectId,
-    options?: PaginationOptions,
+    options?: ListSavedViewsOptions,
     requestOptions?: RequestOptions,
   ) {
     const pagination = options ?? {};
@@ -1378,6 +1380,7 @@ export class BisibilityClient {
         query: {
           cursor: pagination.cursor,
           limit: pagination.limit,
+          surface: pagination.surface,
         },
       },
     );
@@ -1385,7 +1388,7 @@ export class BisibilityClient {
 
   iterateSavedViews(
     projectId: ProjectId,
-    options: PaginationOptions = {},
+    options: ListSavedViewsOptions = {},
     requestOptions?: RequestOptions,
   ) {
     return iterateCursorPagination(

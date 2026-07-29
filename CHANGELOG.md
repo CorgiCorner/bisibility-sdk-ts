@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 - 2026-07-29
+
+- Breaking: align API key and saved-view types with the API, including key expiry, scopes, and
+  saved-view surfaces.
+- Add current alert-rule conditions, recipients, position-drop inputs, and severity.
+
 ## 0.4.0 - 2026-07-28
 
 - Breaking for typed consumers: resource identifiers now use exported public ID v2 types instead

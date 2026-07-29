@@ -15,7 +15,7 @@ TypeScript SDK for the Bisibility REST API.
 ## Requirements
 
 - Node.js >= 18 (the SDK uses the global `fetch`, `Headers`, and `AbortSignal` APIs).
-- The package is **ESM-only** (`"type": "module"`). Use `import` — there is no CommonJS build.
+- The package is **ESM-only** (`"type": "module"`). Use `import`; there is no CommonJS build.
   From CommonJS you can use `await import("@bisibility/sdk")`.
 - On runtimes without a global `fetch` (or to use a custom HTTP stack), inject your own
   implementation via the `fetch` config option (see Configuration).
@@ -76,7 +76,7 @@ to send `X-Bisibility-Project` on project-implicit routes:
 ```ts
 const bisibility = new BisibilityClient({
   apiKey: process.env.BISIBILITY_PERSONAL_ACCESS_TOKEN,
-  projectId: "prj_a00000000000000000000000"
+  projectId: process.env.BISIBILITY_PROJECT_ID
 });
 
 const me = await bisibility.getMe();
@@ -84,7 +84,7 @@ const project = await bisibility.createProject({ domain: "example.com", name: "E
 await bisibility.createProjectApiKey(project.id, { name: "CI" });
 ```
 
-A custom `fetch` implementation can be injected — useful for older runtimes, proxies, or testing:
+A custom `fetch` implementation can be injected for older runtimes, proxies, or testing:
 
 ```ts
 const bisibility = new BisibilityClient({
@@ -126,8 +126,8 @@ on the client or an individual request to opt out.
 Every resource identifier accepted or returned by the SDK uses public ID v2. The
 format is a lowercase resource prefix, an underscore, and a 24-character CUID2
 suffix: `prefix_[a-z][a-z0-9]{23}`. For example, a project ID is
-`prj_a00000000000000000000000` and a keyword ID is
-`kw_b00000000000000000000000`.
+`prj_a1b2c3d4e5f6g7h8j9k0m2n3` and a keyword ID is
+`kw_b2c3d4e5f6g7h8j9k0m2n3p4`.
 
 The SDK rejects raw database IDs, legacy IDs, mixed-case values, and a valid ID
 with the wrong resource prefix before sending a request. `PUBLIC_ID_PREFIXES`,
@@ -239,7 +239,7 @@ await bisibility.updateProjectDefaults(projectId, {
 
 ### Asynchronous rank checks
 
-`runRankCheck` runs synchronously by default. Pass `async: true` to enqueue the check instead —
+`runRankCheck` runs synchronously by default. Pass `async: true` to enqueue the check instead;
 the server responds `202` with a `RankCheck` in `status: "running"` that you can poll via
 `getRankCheckResult`:
 
@@ -253,7 +253,7 @@ Failed checks carry `status: "failed"`, an `error` message, and provider fallbac
 
 ### Signals
 
-`createSignal` ingests a signal (`POST /signals`) into the project tied to your API key —
+`createSignal` ingests a signal (`POST /signals`) into the project tied to your API key;
 `source` must be `"deploy"`, `"cms"`, or `"api"`, and `type` follows the
 `category.event` pattern (for example `deploy.completed`). `listSignals(projectId, options)`
 pages through a project's signals newest first with optional `source`, `type`, `from`, and `to`
@@ -275,7 +275,7 @@ const recent = await bisibility.listSignals(projectId, {
 
 ### Public cost estimates
 
-`getProviderRates` and `getCostEstimate` are anonymous — they work without an `apiKey`:
+`getProviderRates` and `getCostEstimate` are anonymous and work without an `apiKey`:
 
 ```ts
 const rates = await bisibility.getProviderRates();
@@ -301,7 +301,7 @@ application logs.
 import { BisibilityApiError } from "@bisibility/sdk";
 
 try {
-  await bisibility.getKeyword("kw_z00000000000000000000000");
+  await bisibility.getKeyword("kw_z9y8x7w6v5u4t3s2r1q0p9n8");
 } catch (error) {
   if (error instanceof BisibilityApiError) {
     console.error(error.status, error.problem?.detail);

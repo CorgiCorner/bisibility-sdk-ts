@@ -219,16 +219,28 @@ export interface CreateProjectInput {
 
 export interface ApiKey {
   created_at: string;
+  expires_at: string | null;
   id: ApiKeyId;
   last_used_at: string | null;
   name: string;
   prefix: string;
   revoked_at: string | null;
+  scope: ApiKeyScope;
 }
 
 export interface CreatedApiKey extends ApiKey {
   masked_value: string;
   token: string;
+}
+
+export type ApiKeyScope = "admin" | "read" | "write";
+
+export interface CreateApiKeyInput {
+  /** Days until the key expires, or null for no expiry. */
+  expires_in_days?: 30 | 90 | 365 | null;
+  name: string;
+  /** Access tier. Defaults to admin for backward compatibility. */
+  scope?: ApiKeyScope;
 }
 
 export type MembershipRole = "admin" | "auditor" | "member" | "owner" | "viewer";
@@ -765,10 +777,14 @@ export interface RunRankCheckOptions extends RequestOptions {
 export type AlertConditionType =
   | "change_pct"
   | "competitor_overtake"
+  | "ctr_drop"
+  | "downtrend"
   | "enters_top_n"
   | "exits_top_n"
+  | "position_drop"
   | "serp_feature"
-  | "threshold";
+  | "threshold"
+  | "url_mismatch";
 
 export type AlertChannel = "email" | "slack" | "webhook";
 
@@ -809,10 +825,12 @@ interface AlertRuleInputBase {
   channels?: readonly AlertChannel[];
   condition_type: AlertConditionType;
   competitor_domain?: string | null;
+  drop_positions?: number | null;
   enabled?: boolean;
   name: string;
   recipient_ids?: readonly UserId[];
   serp_feature?: string | null;
+  severity?: AlertSeverity;
   threshold_position?: number | null;
   top_n?: number | null;
 }
@@ -1044,27 +1062,61 @@ export type SavedViewPositionFilter = "11-50" | "51-100" | "top10" | "top3";
 
 export type SavedViewSerpFilter = "ai" | "featured" | "image" | "paa" | "sitelinks" | "video";
 
-export interface SavedViewFilters {
+export interface KeywordSavedViewFilters {
   change: SavedViewFilterChange;
   contains: string;
-  country: SavedViewFilterCountry;
-  device: SavedViewFilterDevice;
+  intents: string[];
+  last_check: "any" | RankCheckStatus;
   position: SavedViewPositionFilter[];
   serp: SavedViewSerpFilter[];
   tags: string[];
+  topics: string[];
+  url_changed: boolean;
   vol_max: number;
   vol_min: number;
   wrong_url: boolean;
 }
 
-export interface SavedViewConfig {
-  filters: SavedViewFilters;
+export type SavedViewFilters = KeywordSavedViewFilters;
+
+export interface KeywordSavedViewConfig {
+  filters: KeywordSavedViewFilters;
+  lens: {
+    device: SavedViewFilterDevice;
+    location_id: string | null;
+  };
   search: string;
+  surface: "keywords";
+  version: 1;
 }
+
+export interface CompetitorSavedViewConfig {
+  filters: {
+    excluded_keyword_ids: KeywordId[];
+    position: "all" | "top10" | "top3";
+    tag: string | null;
+  };
+  scope: {
+    device: Device;
+    engine: "google";
+    location_id: string;
+  };
+  surface: "competitors";
+  version: 1;
+}
+
+export type SavedViewConfig = CompetitorSavedViewConfig | KeywordSavedViewConfig;
 
 export interface CreateSavedViewInput {
   config: SavedViewConfig;
   name: string;
+  surface?: SavedViewSurface;
+}
+
+export type SavedViewSurface = "competitors" | "keywords";
+
+export interface ListSavedViewsOptions extends PaginationOptions {
+  surface?: SavedViewSurface;
 }
 
 export interface SavedView {
@@ -1073,6 +1125,7 @@ export interface SavedView {
   created_by_id: UserId | null;
   id: SavedViewId;
   name: string;
+  surface: SavedViewSurface;
 }
 
 export interface DeleteSavedViewResponse {

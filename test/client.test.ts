@@ -184,11 +184,13 @@ function keywordMatchResponse(overrides: Partial<KeywordMatchResponse> = {}): Ke
 function apiKeyResource(overrides: Partial<ApiKey> = {}): ApiKey {
   return {
     created_at: "2026-01-01T00:00:00.000Z",
+    expires_at: null,
     id: "key_f00000000000000000000000",
     last_used_at: null,
     name: "Production",
     prefix: "bsk_live_12345678",
     revoked_at: null,
+    scope: "admin",
     ...overrides,
   };
 }
@@ -355,16 +357,36 @@ const savedViewConfig = {
   filters: {
     change: "any",
     contains: "",
-    country: "all",
-    device: "all",
+    intents: [],
+    last_check: "any",
     position: [],
     serp: [],
     tags: ["Product"],
+    topics: [],
+    url_changed: false,
     vol_max: 50,
     vol_min: 0,
     wrong_url: false,
   },
+  lens: { device: "all", location_id: null },
   search: "rank",
+  surface: "keywords",
+  version: 1,
+} satisfies SavedView["config"];
+
+const competitorSavedViewConfig = {
+  filters: {
+    excluded_keyword_ids: [],
+    position: "all",
+    tag: null,
+  },
+  scope: {
+    device: "desktop",
+    engine: "google",
+    location_id: "US",
+  },
+  surface: "competitors",
+  version: 1,
 } satisfies SavedView["config"];
 
 function savedView(overrides: Partial<SavedView> = {}): SavedView {
@@ -374,6 +396,7 @@ function savedView(overrides: Partial<SavedView> = {}): SavedView {
     created_by_id: "usr_t00000000000000000000000",
     id: "view_o00000000000000000000000",
     name: "Product keywords",
+    surface: "keywords",
     ...overrides,
   };
 }
@@ -1155,7 +1178,10 @@ describe("BisibilityClient protected resources", () => {
       meta: { next_cursor: "cursor_1" },
     });
     await expect(
-      client.createApiKey({ name: "CI" }, { idempotencyKey: "idem_1" }),
+      client.createApiKey(
+        { expires_in_days: 90, name: "CI", scope: "write" },
+        { idempotencyKey: "idem_1" },
+      ),
     ).resolves.toEqual(created);
     await expect(client.revokeApiKey("key_f00000000000000000000000")).resolves.toMatchObject({
       id: "key_f00000000000000000000000",
@@ -1169,7 +1195,11 @@ describe("BisibilityClient protected resources", () => {
     expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get("Idempotency-Key")).toBe(
       "idem_1",
     );
-    expectJsonBody(fetchMock.mock.calls[1]?.[1], { name: "CI" });
+    expectJsonBody(fetchMock.mock.calls[1]?.[1], {
+      expires_in_days: 90,
+      name: "CI",
+      scope: "write",
+    });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
       "https://api.test/api/v1/api-keys/key_f00000000000000000000000",
     );
@@ -2119,6 +2149,7 @@ describe("BisibilityClient protected resources", () => {
           channels: ["email", "webhook"],
           condition_type: "threshold",
           name: "Ranking drop",
+          severity: "warning",
           target_type: "all",
           threshold_position: 10,
         },
@@ -2130,6 +2161,7 @@ describe("BisibilityClient protected resources", () => {
         condition_type: "threshold",
         enabled: false,
         name: "Ranking drop",
+        severity: "info",
         threshold_position: 9,
       }),
     ).resolves.toMatchObject({ threshold_position: 9 });
@@ -2154,6 +2186,7 @@ describe("BisibilityClient protected resources", () => {
       channels: ["email", "webhook"],
       condition_type: "threshold",
       name: "Ranking drop",
+      severity: "warning",
       target_type: "all",
       threshold_position: 10,
     });
@@ -2165,6 +2198,7 @@ describe("BisibilityClient protected resources", () => {
       condition_type: "threshold",
       enabled: false,
       name: "Ranking drop",
+      severity: "info",
       threshold_position: 9,
     });
     expect(fetchMock.mock.calls[4]?.[0]).toBe(
@@ -2453,14 +2487,19 @@ describe("BisibilityClient protected resources", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: false }));
 
     await expect(
-      client.listSavedViews("prj_a00000000000000000000000", { cursor: "view cursor", limit: 2 }),
+      client.listSavedViews("prj_a00000000000000000000000", {
+        cursor: "view cursor",
+        limit: 2,
+        surface: "competitors",
+      }),
     ).resolves.toMatchObject({
       meta: { next_cursor: "view_cursor" },
     });
     await expect(
       client.createSavedView("prj_a00000000000000000000000", {
-        config: savedViewConfig,
-        name: "Product keywords",
+        config: competitorSavedViewConfig,
+        name: "Competitor market",
+        surface: "competitors",
       }),
     ).resolves.toMatchObject({ id: "view_z00000000000000000000000" });
     await expect(
@@ -2471,15 +2510,16 @@ describe("BisibilityClient protected resources", () => {
     });
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-views?cursor=view+cursor&limit=2",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-views?cursor=view+cursor&limit=2&surface=competitors",
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-views",
     );
     expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("POST");
     expectJsonBody(fetchMock.mock.calls[1]?.[1], {
-      config: savedViewConfig,
-      name: "Product keywords",
+      config: competitorSavedViewConfig,
+      name: "Competitor market",
+      surface: "competitors",
     });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-views/view_o00000000000000000000000",
