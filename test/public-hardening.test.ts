@@ -10,7 +10,7 @@ import {
 } from "../src/errors.js";
 import { SDK_VERSION } from "../src/version.js";
 
-const apiKey = "bsk_test";
+const apiKey = "bsb_key_test_x";
 const baseUrl = "https://api.test/api/v1";
 const emptyPage = { data: [], meta: { next_cursor: null } };
 

@@ -1,28 +1,28 @@
 import type { PublicIdForPrefix } from "./public-id.js";
 
-export type AlertId = PublicIdForPrefix<"alert">;
+export type AlertId = PublicIdForPrefix<"al">;
 export type ApiKeyId = PublicIdForPrefix<"key">;
 export type AuditId = PublicIdForPrefix<"audit">;
-export type CloudImportJobId = PublicIdForPrefix<"job">;
-export type CompetitorId = PublicIdForPrefix<"comp">;
+export type CloudImportJobId = PublicIdForPrefix<"imp">;
+export type CompetitorId = PublicIdForPrefix<"cmp">;
 export type ConnectionId = PublicIdForPrefix<"conn">;
-export type IngestHookId = PublicIdForPrefix<"hook">;
-export type InviteId = PublicIdForPrefix<"invite">;
+export type IngestHookId = PublicIdForPrefix<"dwh">;
+export type InviteId = PublicIdForPrefix<"inv">;
 export type KeywordId = PublicIdForPrefix<"kw">;
-export type MembershipId = PublicIdForPrefix<"member">;
-export type MigrationTokenId = PublicIdForPrefix<"mtok">;
-export type NotificationId = PublicIdForPrefix<"notif">;
+export type MembershipId = PublicIdForPrefix<"mbr">;
+export type MigrationTokenId = PublicIdForPrefix<"ferry">;
+export type NotificationId = PublicIdForPrefix<"ntf">;
 export type PersonalAccessTokenId = PublicIdForPrefix<"pat">;
 export type ProjectId = PublicIdForPrefix<"prj">;
 export type RankCheckId = PublicIdForPrefix<"check">;
-export type SavedKeywordId = PublicIdForPrefix<"skw">;
-export type SavedViewId = PublicIdForPrefix<"view">;
-export type SessionId = PublicIdForPrefix<"ses">;
+export type SavedKeywordId = PublicIdForPrefix<"svkw">;
+export type SavedViewId = PublicIdForPrefix<"viw">;
+export type SessionId = PublicIdForPrefix<"sid">;
 export type SignalId = PublicIdForPrefix<"sig">;
 export type TagId = PublicIdForPrefix<"tag">;
 export type UserId = PublicIdForPrefix<"usr">;
-export type WebhookId = PublicIdForPrefix<"webhook">;
-export type AlertRuleId = PublicIdForPrefix<"rule">;
+export type WebhookId = PublicIdForPrefix<"we">;
+export type AlertRuleId = PublicIdForPrefix<"alr">;
 
 export type Device = "desktop" | "mobile";
 
@@ -1384,7 +1384,7 @@ export interface MigrationTokenListResponse extends ListResponse<ActiveMigration
   meta: MigrationTokenListMeta;
 }
 
-export type CloudImportSchemaVersion = 4;
+export type CloudImportSchemaVersion = 5;
 
 export type CloudImportLocation =
   | "Australia"

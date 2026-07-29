@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 - 2026-07-29
+
+- Breaking for API consumers: adopt the public ID v3 prefix registry and reject identifiers that
+  use retired v2 prefixes before a request is sent.
+- Breaking for authentication: require the namespaced `bsb_key_live_`, `bsb_key_test_`,
+  `bsb_pat_live_`, or migration-token credential prefix.
+- Breaking for cloud-import consumers: require schema v5 packages and sessions, and document v3
+  cursors as opaque continuation values that must be passed back unchanged.
+
 ## 0.5.0 - 2026-07-29
 
 - Breaking: align API key and saved-view types with the API, including key expiry, scopes, and

@@ -75,7 +75,7 @@ function assertAlertRuleResponse(value: unknown, label: string) {
   const rule = object(value);
   if (!rule) throw new TypeError(`${label} must be an object.`);
 
-  assertId(rule.id, "rule", `${label}.id`);
+  assertId(rule.id, "alr", `${label}.id`);
   assertIdArray(rule.recipient_ids, "usr", `${label}.recipient_ids`);
 
   if (rule.target_type === "keyword") {
@@ -133,7 +133,7 @@ function assertSchemaObject(value: unknown, label: string, properties: readonly 
   if (!input) throw new TypeError(`${label} must be an object.`);
   for (const key of Object.keys(input)) {
     if (!properties.includes(key)) {
-      throw new TypeError(`${label}.${key} is not part of the v4 cloud import schema.`);
+      throw new TypeError(`${label}.${key} is not part of the v5 cloud import schema.`);
     }
   }
   return input;
@@ -276,14 +276,14 @@ function assertCloudImportKeyword(value: unknown, label: string) {
 
 function assertCloudImportCompetitor(value: unknown, label: string) {
   const competitor = assertSchemaObject(value, label, ["domain", "id", "label"]);
-  assertId(required(competitor, "id", label), "comp", `${label}.id`);
+  assertId(required(competitor, "id", label), "cmp", `${label}.id`);
   assertString(required(competitor, "domain", label), `${label}.domain`, 1, 253);
   if (has(competitor, "label")) assertNullableString(competitor.label, `${label}.label`, 0, 80);
 }
 
 function assertCloudImportSavedView(value: unknown, label: string) {
   const view = assertSchemaObject(value, label, ["config", "id", "name", "surface"]);
-  assertId(required(view, "id", label), "view", `${label}.id`);
+  assertId(required(view, "id", label), "viw", `${label}.id`);
   assertString(required(view, "name", label), `${label}.name`, 1, 120);
   if (has(view, "surface"))
     assertEnum(view.surface, ["keywords", "competitors"], `${label}.surface`);
@@ -334,7 +334,7 @@ function assertCloudImportAlertRule(value: unknown, label: string) {
     "threshold_position",
     "top_n",
   ]);
-  assertId(required(rule, "id", label), "rule", `${label}.id`);
+  assertId(required(rule, "id", label), "alr", `${label}.id`);
   assertString(required(rule, "name", label), `${label}.name`, 1, 120);
   if (has(rule, "change_pct")) assertNullableNumber(rule.change_pct, `${label}.change_pct`);
   if (has(rule, "channels")) {
@@ -409,8 +409,8 @@ function assertCloudImportPackage(input: unknown) {
     "scope",
     "version",
   ]);
-  if (required(payload, "version", "Cloud import payload") !== 4) {
-    throw new TypeError("Cloud import payload version must be 4.");
+  if (required(payload, "version", "Cloud import payload") !== 5) {
+    throw new TypeError("Cloud import payload version must be 5.");
   }
   assertId(required(payload, "project_id", "Cloud import payload"), "prj", "project_id");
   for (const [index, keyword] of assertArray(
@@ -459,8 +459,8 @@ function assertCloudImportSessionCreate(input: unknown) {
     "totals",
     "version",
   ]);
-  if (required(session, "version", "Cloud import session") !== 4) {
-    throw new TypeError("Cloud import session version must be 4.");
+  if (required(session, "version", "Cloud import session") !== 5) {
+    throw new TypeError("Cloud import session version must be 5.");
   }
   assertInteger(required(session, "chunk_count", "Cloud import session"), "chunk_count", 1, 500);
   assertId(
@@ -589,7 +589,7 @@ function assertCloudImportCompatibilityResponse(value: unknown) {
     "schema_versions_supported",
   );
   for (const [index, version] of versions.entries()) {
-    if (version !== 4) throw new TypeError(`schema_versions_supported[${index}] must be 4.`);
+    if (version !== 5) throw new TypeError(`schema_versions_supported[${index}] must be 5.`);
   }
   assertString(
     required(response, "app_version", "Cloud import compatibility response"),
@@ -611,7 +611,7 @@ function assertCloudImportFinalizeResponse(value: unknown) {
   const response = object(value);
   if (!response) throw new TypeError("Cloud import finalize response must be an object.");
   assertCloudImportCounts(required(response, "counts", "Cloud import finalize response"), "counts");
-  assertId(required(response, "job_id", "Cloud import finalize response"), "job", "job_id");
+  assertId(required(response, "job_id", "Cloud import finalize response"), "imp", "job_id");
   if (required(response, "state", "Cloud import finalize response") !== "done") {
     throw new TypeError("state must be done.");
   }
@@ -620,7 +620,7 @@ function assertCloudImportFinalizeResponse(value: unknown) {
 function assertCloudImportSessionCreateResponse(value: unknown) {
   const response = object(value);
   if (!response) throw new TypeError("Cloud import session response must be an object.");
-  assertId(required(response, "session_id", "Cloud import session response"), "job", "session_id");
+  assertId(required(response, "session_id", "Cloud import session response"), "imp", "session_id");
   if (required(response, "state", "Cloud import session response") !== "receiving") {
     throw new TypeError("state must be receiving.");
   }
@@ -668,21 +668,21 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
     assertId(second, "kw", "keywordId");
   }
   if (first === "rank-checks" && second) assertId(second, "check", "checkId");
-  if (first === "alert-rules" && second) assertId(second, "rule", "ruleId");
+  if (first === "alert-rules" && second) assertId(second, "alr", "ruleId");
   if (first === "api-keys" && second) assertId(second, "key", "keyId");
-  if (first === "saved-views" && second) assertId(second, "view", "viewId");
-  if (first === "competitors" && second) assertId(second, "comp", "competitorId");
-  if (first === "migration-tokens" && second) assertId(second, "mtok", "tokenId");
-  if (first === "team" && second === "invites" && third) assertId(third, "invite", "inviteId");
+  if (first === "saved-views" && second) assertId(second, "viw", "viewId");
+  if (first === "competitors" && second) assertId(second, "cmp", "competitorId");
+  if (first === "migration-tokens" && second) assertId(second, "ferry", "tokenId");
+  if (first === "team" && second === "invites" && third) assertId(third, "inv", "inviteId");
   if (first === "me" && second === "tokens" && third && third !== "current") {
     assertId(third, "pat", "tokenId");
   }
   if (first === "cloud" && second === "import" && third === "sessions" && fourth) {
-    assertId(fourth, "job", "sessionId");
+    assertId(fourth, "imp", "sessionId");
   }
 
   if (first === "projects" && second && third === "webhooks" && fourth) {
-    assertId(fourth, "webhook", "webhookId");
+    assertId(fourth, "we", "webhookId");
   }
   if (first === "projects" && second && third === "sitemap-monitors" && fourth) {
     assertId(fourth, "prj", "monitorId");
@@ -694,22 +694,22 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
     fourth &&
     fourth !== "mark-read"
   ) {
-    assertId(fourth, "alert", "alertId");
+    assertId(fourth, "al", "alertId");
   }
   if (first === "projects" && second && third === "team" && fourth === "invites" && fifth) {
-    assertId(fifth, "invite", "inviteId");
+    assertId(fifth, "inv", "inviteId");
   }
   if (first === "projects" && second && third === "team" && fourth === "members" && fifth) {
-    assertId(fifth, "member", "memberId");
+    assertId(fifth, "mbr", "memberId");
   }
   if (first === "projects" && second && third === "migration-tokens" && fourth) {
-    assertId(fourth, "mtok", "tokenId");
+    assertId(fourth, "ferry", "tokenId");
   }
   if (first === "projects" && second && third === "competitors" && fourth) {
-    assertId(fourth, "comp", "competitorId");
+    assertId(fourth, "cmp", "competitorId");
   }
   if (first === "projects" && second && third === "saved-views" && fourth) {
-    assertId(fourth, "view", "viewId");
+    assertId(fourth, "viw", "viewId");
   }
 
   if (first === "keywords" && second === "bulk") {

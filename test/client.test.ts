@@ -62,7 +62,7 @@ type FetchMock = ReturnType<
   typeof vi.fn<(input: string | URL | Request, init?: RequestInit) => Promise<Response>>
 >;
 
-const apiKey = "bsk_live_1234567890abcdef";
+const apiKey = "bsb_key_test_x";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -188,7 +188,7 @@ function apiKeyResource(overrides: Partial<ApiKey> = {}): ApiKey {
     id: "key_f00000000000000000000000",
     last_used_at: null,
     name: "Production",
-    prefix: "bsk_live_12345678",
+    prefix: "bsb_key_live_12345678",
     revoked_at: null,
     scope: "admin",
     ...overrides,
@@ -244,7 +244,7 @@ function alertRule(overrides: Partial<AllTargetAlertRule> = {}): AllTargetAlertR
     condition_type: "threshold",
     enabled: true,
     fires: "2 this week",
-    id: "rule_a00000000000000000000000",
+    id: "alr_a00000000000000000000000",
     name: "Ranking drop",
     period: "Each check",
     recipient_ids: [],
@@ -264,7 +264,7 @@ function triggeredAlert(overrides: Partial<TriggeredAlert> = {}): TriggeredAlert
     ctas: ["Open keyword"],
     current: "#12",
     headline: "Ranking drop",
-    id: "alert_j00000000000000000000000",
+    id: "al_j00000000000000000000000",
     keyword: "rank tracker",
     previous: "#4",
     rule: "Ranking drop",
@@ -279,7 +279,7 @@ function teamMember(overrides: Partial<TeamMember> = {}): TeamMember {
   return {
     color: "accent",
     email: "owner@example.com",
-    id: "member_k00000000000000000000000",
+    id: "mbr_k00000000000000000000000",
     initials: "OE",
     name: "Owner Example",
     role: "Owner",
@@ -292,7 +292,7 @@ function teamInvite(overrides: Partial<TeamInvite> = {}): TeamInvite {
   return {
     email: "new@example.com",
     expires_label: "expires in 7d",
-    id: "invite_l00000000000000000000000",
+    id: "inv_l00000000000000000000000",
     invited_label: "invited just now",
     role: "Viewer",
     role_value: "viewer",
@@ -394,7 +394,7 @@ function savedView(overrides: Partial<SavedView> = {}): SavedView {
     config: savedViewConfig,
     created_at: "2026-01-07T00:00:00.000Z",
     created_by_id: "usr_t00000000000000000000000",
-    id: "view_o00000000000000000000000",
+    id: "viw_o00000000000000000000000",
     name: "Product keywords",
     surface: "keywords",
     ...overrides,
@@ -404,7 +404,7 @@ function savedView(overrides: Partial<SavedView> = {}): SavedView {
 function competitor(overrides: Partial<Competitor> = {}): Competitor {
   return {
     domain: "example.org",
-    id: "comp_p00000000000000000000000",
+    id: "cmp_p00000000000000000000000",
     initials: "E",
     label: "Example",
     ...overrides,
@@ -439,7 +439,7 @@ function activeMigrationToken(overrides: Partial<ActiveMigrationToken> = {}): Ac
     created_at: "2026-01-08T00:00:00.000Z",
     created_by: { email: "owner@example.com", name: "Owner Example" },
     expires_at: "2026-01-08T01:00:00.000Z",
-    id: "mtok_q00000000000000000000000",
+    id: "ferry_q00000000000000000000000",
     scope: "full",
     single_use: true,
     ...overrides,
@@ -452,7 +452,7 @@ function migrationJob(): MigrationTokenListResponse["meta"]["import_job"] {
     created_at: "2026-01-08T00:00:00.000Z",
     error: null,
     finished_at: null,
-    id: "job_r00000000000000000000000",
+    id: "imp_r00000000000000000000000",
     progress: 0,
     started_at: null,
     state: "idle",
@@ -780,7 +780,7 @@ describe("BisibilityClient protected resources", () => {
   });
 
   it("does not expose credentials through object inspection or serialization", () => {
-    const secret = "bsk_live_do_not_log_this";
+    const secret = "bsb_key_live_do_not_log_this";
     const inspectedClient = new BisibilityClient({
       apiKey: secret,
       baseUrl: "https://api.test/api/v1",
@@ -837,7 +837,7 @@ describe("BisibilityClient protected resources", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(keyword()));
     fetchMock.mockResolvedValueOnce(jsonResponse(keyword()));
     const patClient = createClient(fetchMock, {
-      apiKey: "bsp_live_1234567890abcdef",
+      apiKey: "bsb_pat_live_test",
       projectId: "prj_v00000000000000000000000",
     });
 
@@ -874,11 +874,15 @@ describe("BisibilityClient protected resources", () => {
       id: "pat_g00000000000000000000000",
       last_used_at: null,
       name: "CLI",
-      prefix: "bsp_live_example",
+      prefix: "bsb_pat_live_example",
       revoked_at: null,
       scope: "admin",
     } as const;
-    const issued = { ...token, masked_value: "bsp_live_example******abcd", token: "bsp_live_raw" };
+    const issued = {
+      ...token,
+      masked_value: "bsb_pat_live_example******abcd",
+      token: "bsb_pat_live_raw",
+    };
     fetchMock.mockResolvedValueOnce(jsonResponse(me));
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...me, name: "Renamed" }));
     fetchMock.mockResolvedValueOnce(jsonResponse(list([token])));
@@ -914,14 +918,14 @@ describe("BisibilityClient protected resources", () => {
   it("creates projects, project API keys, and webhook endpoints", async () => {
     const createdKey: CreatedApiKey = {
       ...apiKeyResource({ id: "key_x00000000000000000000000", name: "CI" }),
-      masked_value: "bsk_live_12345678******cdef",
+      masked_value: "bsb_key_live_12345678******cdef",
       token: apiKey,
     };
     const webhook = {
       created_at: "2026-07-12T00:00:00.000Z",
       description: "CI",
       enabled: true,
-      id: "webhook_h00000000000000000000000",
+      id: "we_h00000000000000000000000",
       last_delivery_at: null,
       updated_at: "2026-07-12T00:00:00.000Z",
       url: "https://example.com/hook",
@@ -947,10 +951,10 @@ describe("BisibilityClient protected resources", () => {
       hmac_secret: "1234567890123456",
       url: webhook.url,
     });
-    await client.updateWebhook("prj_a00000000000000000000000", "webhook_h00000000000000000000000", {
+    await client.updateWebhook("prj_a00000000000000000000000", "we_h00000000000000000000000", {
       enabled: false,
     });
-    await client.deleteWebhook("prj_a00000000000000000000000", "webhook_h00000000000000000000000");
+    await client.deleteWebhook("prj_a00000000000000000000000", "we_h00000000000000000000000");
 
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       "https://api.test/api/v1/projects",
@@ -958,8 +962,8 @@ describe("BisibilityClient protected resources", () => {
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/api-keys",
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/webhooks",
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/webhooks",
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/webhooks/webhook_h00000000000000000000000",
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/webhooks/webhook_h00000000000000000000000",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/webhooks/we_h00000000000000000000000",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/webhooks/we_h00000000000000000000000",
     ]);
     expectJsonBody(fetchMock.mock.calls[0]?.[1], {
       domain: "example.com",
@@ -1165,7 +1169,7 @@ describe("BisibilityClient protected resources", () => {
   it("lists, creates, and revokes API keys", async () => {
     const created: CreatedApiKey = {
       ...apiKeyResource({ id: "key_y00000000000000000000000", name: "CI" }),
-      masked_value: "bsk_live_12345678******cdef",
+      masked_value: "bsb_key_live_12345678******cdef",
       token: apiKey,
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(list([apiKeyResource()], "cursor_1")));
@@ -2131,7 +2135,7 @@ describe("BisibilityClient protected resources", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(ruleList));
     fetchMock.mockResolvedValueOnce(jsonResponse(triggeredList));
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(alertRule({ id: "rule_b00000000000000000000000" }), { status: 201 }),
+      jsonResponse(alertRule({ id: "alr_b00000000000000000000000" }), { status: 201 }),
     );
     fetchMock.mockResolvedValueOnce(jsonResponse(alertRule({ threshold_position: 9 })));
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
@@ -2155,9 +2159,9 @@ describe("BisibilityClient protected resources", () => {
         },
         { idempotencyKey: "idem_alert" },
       ),
-    ).resolves.toMatchObject({ id: "rule_b00000000000000000000000" });
+    ).resolves.toMatchObject({ id: "alr_b00000000000000000000000" });
     await expect(
-      client.updateAlertRule("rule_a00000000000000000000000", {
+      client.updateAlertRule("alr_a00000000000000000000000", {
         condition_type: "threshold",
         enabled: false,
         name: "Ranking drop",
@@ -2165,7 +2169,7 @@ describe("BisibilityClient protected resources", () => {
         threshold_position: 9,
       }),
     ).resolves.toMatchObject({ threshold_position: 9 });
-    await expect(client.deleteAlertRule("rule_a00000000000000000000000")).resolves.toEqual({
+    await expect(client.deleteAlertRule("alr_a00000000000000000000000")).resolves.toEqual({
       deleted: true,
     });
 
@@ -2191,7 +2195,7 @@ describe("BisibilityClient protected resources", () => {
       threshold_position: 10,
     });
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
-      "https://api.test/api/v1/alert-rules/rule_a00000000000000000000000",
+      "https://api.test/api/v1/alert-rules/alr_a00000000000000000000000",
     );
     expect(fetchMock.mock.calls[3]?.[1]?.method).toBe("PATCH");
     expectJsonBody(fetchMock.mock.calls[3]?.[1], {
@@ -2202,7 +2206,7 @@ describe("BisibilityClient protected resources", () => {
       threshold_position: 9,
     });
     expect(fetchMock.mock.calls[4]?.[0]).toBe(
-      "https://api.test/api/v1/alert-rules/rule_a00000000000000000000000",
+      "https://api.test/api/v1/alert-rules/alr_a00000000000000000000000",
     );
     expect(fetchMock.mock.calls[4]?.[1]?.method).toBe("DELETE");
   });
@@ -2214,14 +2218,14 @@ describe("BisibilityClient protected resources", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(readResult));
 
     await expect(
-      client.muteTriggeredAlert("prj_a00000000000000000000000", "alert_j00000000000000000000000"),
+      client.muteTriggeredAlert("prj_a00000000000000000000000", "al_j00000000000000000000000"),
     ).resolves.toEqual(muteResult);
     await expect(client.markProjectAlertsRead("prj_a00000000000000000000000")).resolves.toEqual(
       readResult,
     );
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/triggered-alerts/alert_j00000000000000000000000/mute",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/triggered-alerts/al_j00000000000000000000000/mute",
     );
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBeUndefined();
@@ -2235,14 +2239,14 @@ describe("BisibilityClient protected resources", () => {
   it("lists team members and manages team invites through scoped and top-level routes", async () => {
     const created: CreatedTeamInvite = {
       expires_at: "2026-01-14T00:00:00.000Z",
-      id: "invite_m00000000000000000000000",
+      id: "inv_m00000000000000000000000",
       invite_link: "https://app.example.com/invite/raw",
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(list([teamMember()], "member_cursor")));
     fetchMock.mockResolvedValueOnce(jsonResponse(list([teamInvite()], "invite_cursor")));
     fetchMock.mockResolvedValueOnce(jsonResponse(created, { status: 201 }));
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "invite_l00000000000000000000000" }));
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "invite_m00000000000000000000000" }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "inv_l00000000000000000000000" }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "inv_m00000000000000000000000" }));
 
     await expect(
       client.listTeamMembers("prj_a00000000000000000000000", { limit: 10 }),
@@ -2261,10 +2265,10 @@ describe("BisibilityClient protected resources", () => {
       }),
     ).resolves.toEqual(created);
     await expect(
-      client.revokeTeamInvite("prj_a00000000000000000000000", "invite_l00000000000000000000000"),
-    ).resolves.toEqual({ id: "invite_l00000000000000000000000" });
-    await expect(client.revokeTeamInviteById("invite_m00000000000000000000000")).resolves.toEqual({
-      id: "invite_m00000000000000000000000",
+      client.revokeTeamInvite("prj_a00000000000000000000000", "inv_l00000000000000000000000"),
+    ).resolves.toEqual({ id: "inv_l00000000000000000000000" });
+    await expect(client.revokeTeamInviteById("inv_m00000000000000000000000")).resolves.toEqual({
+      id: "inv_m00000000000000000000000",
     });
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
@@ -2282,48 +2286,46 @@ describe("BisibilityClient protected resources", () => {
       role: "viewer",
     });
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/team/invites/invite_l00000000000000000000000",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/team/invites/inv_l00000000000000000000000",
     );
     expect(fetchMock.mock.calls[3]?.[1]?.method).toBe("DELETE");
     expect(fetchMock.mock.calls[4]?.[0]).toBe(
-      "https://api.test/api/v1/team/invites/invite_m00000000000000000000000",
+      "https://api.test/api/v1/team/invites/inv_m00000000000000000000000",
     );
   });
 
   it("updates and removes team members and resends invites", async () => {
     const resent = {
       expires_at: "2026-07-29T10:00:00.000Z",
-      id: "invite_l00000000000000000000000",
+      id: "inv_l00000000000000000000000",
       invite_link: "https://app.example.com/invite/new-token",
     };
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ id: "member_k00000000000000000000000", role: "admin" }),
+      jsonResponse({ id: "mbr_k00000000000000000000000", role: "admin" }),
     );
-    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "member_k00000000000000000000000" }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "mbr_k00000000000000000000000" }));
     fetchMock.mockResolvedValueOnce(jsonResponse(resent));
 
     await expect(
-      client.updateTeamMemberRole(
-        "prj_a00000000000000000000000",
-        "member_k00000000000000000000000",
-        { role: "admin" },
-      ),
-    ).resolves.toEqual({ id: "member_k00000000000000000000000", role: "admin" });
+      client.updateTeamMemberRole("prj_a00000000000000000000000", "mbr_k00000000000000000000000", {
+        role: "admin",
+      }),
+    ).resolves.toEqual({ id: "mbr_k00000000000000000000000", role: "admin" });
     await expect(
-      client.removeTeamMember("prj_a00000000000000000000000", "member_k00000000000000000000000"),
-    ).resolves.toEqual({ id: "member_k00000000000000000000000" });
+      client.removeTeamMember("prj_a00000000000000000000000", "mbr_k00000000000000000000000"),
+    ).resolves.toEqual({ id: "mbr_k00000000000000000000000" });
     await expect(
-      client.resendTeamInvite("prj_a00000000000000000000000", "invite_l00000000000000000000000"),
+      client.resendTeamInvite("prj_a00000000000000000000000", "inv_l00000000000000000000000"),
     ).resolves.toEqual(resent);
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/team/members/member_k00000000000000000000000",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/team/members/mbr_k00000000000000000000000",
     );
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("PATCH");
     expectJsonBody(fetchMock.mock.calls[0]?.[1], { role: "admin" });
     expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("DELETE");
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/team/invites/invite_l00000000000000000000000/resend",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/team/invites/inv_l00000000000000000000000/resend",
     );
     expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("POST");
   });
@@ -2481,7 +2483,7 @@ describe("BisibilityClient protected resources", () => {
   it("lists, creates, and deletes saved views through scoped and top-level routes", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(list([savedView()], "view_cursor")));
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(savedView({ id: "view_z00000000000000000000000" }), { status: 201 }),
+      jsonResponse(savedView({ id: "viw_z00000000000000000000000" }), { status: 201 }),
     );
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
     fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: false }));
@@ -2501,11 +2503,11 @@ describe("BisibilityClient protected resources", () => {
         name: "Competitor market",
         surface: "competitors",
       }),
-    ).resolves.toMatchObject({ id: "view_z00000000000000000000000" });
+    ).resolves.toMatchObject({ id: "viw_z00000000000000000000000" });
     await expect(
-      client.deleteSavedView("prj_a00000000000000000000000", "view_o00000000000000000000000"),
+      client.deleteSavedView("prj_a00000000000000000000000", "viw_o00000000000000000000000"),
     ).resolves.toEqual({ deleted: true });
-    await expect(client.deleteSavedViewById("view_o00000000000000000000000")).resolves.toEqual({
+    await expect(client.deleteSavedViewById("viw_o00000000000000000000000")).resolves.toEqual({
       deleted: false,
     });
 
@@ -2522,11 +2524,11 @@ describe("BisibilityClient protected resources", () => {
       surface: "competitors",
     });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-views/view_o00000000000000000000000",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-views/viw_o00000000000000000000000",
     );
     expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("DELETE");
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
-      "https://api.test/api/v1/saved-views/view_o00000000000000000000000",
+      "https://api.test/api/v1/saved-views/viw_o00000000000000000000000",
     );
   });
 
@@ -2548,14 +2550,14 @@ describe("BisibilityClient protected resources", () => {
               {
                 gap: 2,
                 keyword: "rank tracker",
-                ranks: { comp_p00000000000000000000000: 2, you: 4 },
+                ranks: { cmp_p00000000000000000000000: 2, you: 4 },
               },
             ],
             shares: [
               {
                 color: "#111",
                 domain: "example.org",
-                id: "comp_p00000000000000000000000",
+                id: "cmp_p00000000000000000000000",
                 initials: "E",
                 kind: "Managed",
                 label: "Example",
@@ -2590,9 +2592,9 @@ describe("BisibilityClient protected resources", () => {
       domain: "example.org",
     });
     await expect(
-      client.removeCompetitor("prj_a00000000000000000000000", "comp_p00000000000000000000000"),
+      client.removeCompetitor("prj_a00000000000000000000000", "cmp_p00000000000000000000000"),
     ).resolves.toEqual({ removed: true });
-    await expect(client.removeCompetitorById("comp_p00000000000000000000000")).resolves.toEqual({
+    await expect(client.removeCompetitorById("cmp_p00000000000000000000000")).resolves.toEqual({
       removed: true,
     });
 
@@ -2605,11 +2607,11 @@ describe("BisibilityClient protected resources", () => {
     expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("POST");
     expectJsonBody(fetchMock.mock.calls[1]?.[1], { domain: "https://example.org" });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/competitors/comp_p00000000000000000000000",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/competitors/cmp_p00000000000000000000000",
     );
     expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("DELETE");
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
-      "https://api.test/api/v1/competitors/comp_p00000000000000000000000",
+      "https://api.test/api/v1/competitors/cmp_p00000000000000000000000",
     );
   });
 
@@ -2655,10 +2657,16 @@ describe("BisibilityClient protected resources", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(issuedMigrationToken(), { status: 201 }));
     fetchMock.mockResolvedValueOnce(jsonResponse(issuedMigrationToken({ scope: "keywords" })));
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ id: "mtok_q00000000000000000000000", revoked_at: "2026-01-08T00:30:00.000Z" }),
+      jsonResponse({
+        id: "ferry_q00000000000000000000000",
+        revoked_at: "2026-01-08T00:30:00.000Z",
+      }),
     );
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ id: "mtok_r00000000000000000000000", revoked_at: "2026-01-08T00:45:00.000Z" }),
+      jsonResponse({
+        id: "ferry_r00000000000000000000000",
+        revoked_at: "2026-01-08T00:45:00.000Z",
+      }),
     );
 
     await expect(
@@ -2675,14 +2683,14 @@ describe("BisibilityClient protected resources", () => {
       ),
     ).resolves.toMatchObject({ scope: "keywords" });
     await expect(
-      client.revokeMigrationToken("prj_a00000000000000000000000", "mtok_q00000000000000000000000"),
+      client.revokeMigrationToken("prj_a00000000000000000000000", "ferry_q00000000000000000000000"),
     ).resolves.toMatchObject({
-      id: "mtok_q00000000000000000000000",
+      id: "ferry_q00000000000000000000000",
     });
     await expect(
-      client.revokeMigrationTokenById("mtok_q00000000000000000000000"),
+      client.revokeMigrationTokenById("ferry_q00000000000000000000000"),
     ).resolves.toMatchObject({
-      id: "mtok_r00000000000000000000000",
+      id: "ferry_r00000000000000000000000",
     });
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
@@ -2700,11 +2708,11 @@ describe("BisibilityClient protected resources", () => {
     );
     expectJsonBody(fetchMock.mock.calls[2]?.[1], { scope: "keywords" });
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/migration-tokens/mtok_q00000000000000000000000",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/migration-tokens/ferry_q00000000000000000000000",
     );
     expect(fetchMock.mock.calls[3]?.[1]?.method).toBe("DELETE");
     expect(fetchMock.mock.calls[4]?.[0]).toBe(
-      "https://api.test/api/v1/migration-tokens/mtok_q00000000000000000000000",
+      "https://api.test/api/v1/migration-tokens/ferry_q00000000000000000000000",
     );
   });
 
@@ -2747,7 +2755,7 @@ describe("BisibilityClient protected resources", () => {
     const compatibility: CloudImportCompatibility = {
       app_version: "2026.07.01",
       latest_migration: "2026_07_01_000000",
-      schema_versions_supported: [4],
+      schema_versions_supported: [5],
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(compatibility));
 
@@ -2766,7 +2774,7 @@ describe("BisibilityClient protected resources", () => {
   it("imports a cloud export package with a migration token", async () => {
     const finalized: CloudImportFinalizeResponse = {
       counts: { competitors: 2, keywords: 5 },
-      job_id: "job_r00000000000000000000000",
+      job_id: "imp_r00000000000000000000000",
       state: "done",
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(finalized, { status: 201 }));
@@ -2776,7 +2784,7 @@ describe("BisibilityClient protected resources", () => {
       migrationClient.importCloudExport({
         alert_rules: [],
         competitors: [
-          { domain: "rival.example.com", id: "comp_r00000000000000000000000", label: "Rival" },
+          { domain: "rival.example.com", id: "cmp_r00000000000000000000000", label: "Rival" },
         ],
         keywords: [
           {
@@ -2790,7 +2798,7 @@ describe("BisibilityClient protected resources", () => {
         project_id: "prj_r00000000000000000000000",
         saved_views: [],
         scope: "current",
-        version: 4,
+        version: 5,
       }),
     ).resolves.toEqual(finalized);
 
@@ -2801,7 +2809,7 @@ describe("BisibilityClient protected resources", () => {
     expectJsonBody(call.init, {
       alert_rules: [],
       competitors: [
-        { domain: "rival.example.com", id: "comp_r00000000000000000000000", label: "Rival" },
+        { domain: "rival.example.com", id: "cmp_r00000000000000000000000", label: "Rival" },
       ],
       keywords: [
         {
@@ -2815,14 +2823,14 @@ describe("BisibilityClient protected resources", () => {
       project_id: "prj_r00000000000000000000000",
       saved_views: [],
       scope: "current",
-      version: 4,
+      version: 5,
     });
   });
 
   it("creates, uploads to, and finalizes a chunked cloud import session", async () => {
     const created: CloudImportSessionCreateResponse = {
       chunk_limits: { max_body_bytes: 1_048_576, max_history_rows: 5000, max_keywords: 500 },
-      session_id: "job_s00000000000000000000000",
+      session_id: "imp_s00000000000000000000000",
       state: "receiving",
     };
     const chunkAccepted: CloudImportChunkResponse = {
@@ -2832,7 +2840,7 @@ describe("BisibilityClient protected resources", () => {
     };
     const finalized: CloudImportFinalizeResponse = {
       counts: { keywords: 3 },
-      job_id: "job_s00000000000000000000000",
+      job_id: "imp_s00000000000000000000000",
       state: "done",
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(created, { status: 201 }));
@@ -2846,13 +2854,13 @@ describe("BisibilityClient protected resources", () => {
         chunk_count: 2,
         source_project_id: "prj_s00000000000000000000000",
         totals: { keywords: 3, rank_checks: 0 },
-        version: 4,
+        version: 5,
       }),
     ).resolves.toEqual(created);
 
     await expect(
       migrationClient.uploadCloudImportChunk(
-        "job_s00000000000000000000000",
+        "imp_s00000000000000000000000",
         0,
         {
           checksum: `sha256:${"a".repeat(64)}`,
@@ -2871,18 +2879,18 @@ describe("BisibilityClient protected resources", () => {
     ).resolves.toEqual(chunkAccepted);
 
     await expect(
-      migrationClient.finalizeCloudImportSession("job_s00000000000000000000000"),
+      migrationClient.finalizeCloudImportSession("imp_s00000000000000000000000"),
     ).resolves.toEqual(finalized);
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.test/api/v1/cloud/import/sessions");
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "https://api.test/api/v1/cloud/import/sessions/job_s00000000000000000000000/chunks/0",
+      "https://api.test/api/v1/cloud/import/sessions/imp_s00000000000000000000000/chunks/0",
     );
     expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("PUT");
     expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get("Content-Encoding")).toBe("gzip");
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      "https://api.test/api/v1/cloud/import/sessions/job_s00000000000000000000000/finalize",
+      "https://api.test/api/v1/cloud/import/sessions/imp_s00000000000000000000000/finalize",
     );
     expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("POST");
     expect(fetchMock.mock.calls[2]?.[1]?.body).toBeUndefined();
@@ -2927,6 +2935,21 @@ describe("BisibilityClient errors", () => {
       BisibilityConfigurationError,
     );
   });
+
+  it.each(["bsk_live_legacy", "bsk_test_legacy", "bsp_live_legacy", "opaque-secret"])(
+    "rejects an unsupported credential before sending a request",
+    (unsupportedCredential) => {
+      expect(
+        () =>
+          new BisibilityClient({
+            apiKey: unsupportedCredential,
+            baseUrl: "https://api.test/api/v1",
+            fetch: fetchMock,
+          }),
+      ).toThrow(BisibilityConfigurationError);
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("throws a configuration error when fetch is unavailable", async () => {
     const originalFetch = globalThis.fetch;

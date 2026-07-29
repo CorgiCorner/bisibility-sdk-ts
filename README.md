@@ -61,7 +61,7 @@ if (projectId) {
 
 ```ts
 const bisibility = new BisibilityClient({
-  apiKey: "bsk_live_...",
+  apiKey: "bsb_key_live_...",
   baseUrl: "https://bisibility.com/api/v1"
 });
 ```
@@ -69,8 +69,9 @@ const bisibility = new BisibilityClient({
 `baseUrl` should point at the API v1 root. For self-hosted installs, pass your own
 `https://your-host.example/api/v1` URL. Browser apps may pass a relative URL such as `/api/v1`.
 
-The client accepts project API keys (`bsk_live_...`) and personal access tokens
-(`bsp_live_...`). For a PAT with multiple project memberships, set `projectId`
+The client accepts project API keys (`bsb_key_live_...` or `bsb_key_test_...`) and personal access
+tokens (`bsb_pat_live_...`). Retired `bsk_` and `bsp_` credentials are rejected locally. For a PAT
+with multiple project memberships, set `projectId`
 to send `X-Bisibility-Project` on project-implicit routes:
 
 ```ts
@@ -88,7 +89,7 @@ A custom `fetch` implementation can be injected for older runtimes, proxies, or 
 
 ```ts
 const bisibility = new BisibilityClient({
-  apiKey: "bsk_live_...",
+  apiKey: "bsb_key_live_...",
   fetch: myFetch
 });
 ```
@@ -123,7 +124,7 @@ on the client or an individual request to opt out.
 
 ## Public resource IDs
 
-Every resource identifier accepted or returned by the SDK uses public ID v2. The
+Every resource identifier accepted or returned by the SDK uses public ID v3. The
 format is a lowercase resource prefix, an underscore, and a 24-character CUID2
 suffix: `prefix_[a-z][a-z0-9]{23}`. For example, a project ID is
 `prj_a1b2c3d4e5f6g7h8j9k0m2n3` and a keyword ID is
@@ -135,7 +136,8 @@ with the wrong resource prefix before sending a request. `PUBLIC_ID_PREFIXES`,
 and `WebhookId` are exported for callers that build typed integrations.
 
 Locations are identified by `location_key`; they do not expose a location ID.
-Cloud import and export payloads use schema version 4 only.
+Cloud import and export payloads use schema version 5 only. Pagination cursors are opaque SDK
+values; v3 API cursors returned by the server must be passed back unchanged.
 
 ## Methods
 

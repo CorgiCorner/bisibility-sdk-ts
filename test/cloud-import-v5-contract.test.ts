@@ -85,10 +85,10 @@ const cloudImportSectionsHaveNoStringIndex: Equal<
 
 const projectId = "prj_a00000000000000000000000";
 const keywordId = "kw_a00000000000000000000000";
-const competitorId = "comp_a00000000000000000000000";
-const ruleId = "rule_a00000000000000000000000";
-const savedViewId = "view_a00000000000000000000000";
-const jobId = "job_a00000000000000000000000";
+const competitorId = "cmp_a00000000000000000000000";
+const ruleId = "alr_a00000000000000000000000";
+const savedViewId = "viw_a00000000000000000000000";
+const jobId = "imp_a00000000000000000000000";
 const checksum = `sha256:${"a".repeat(64)}`;
 
 const exactKeyword: CloudImportKeyword = {
@@ -161,14 +161,14 @@ const exactPackage: CloudImportPackage = {
   project_id: projectId,
   saved_views: [exactSavedView],
   scope: "history",
-  version: 4,
+  version: 5,
 };
 
 const exactSession: CloudImportSessionCreate = {
   chunk_count: 1,
   source_project_id: projectId,
   totals: { keywords: 1, rank_checks: 1 },
-  version: 4,
+  version: 5,
 };
 
 const exactSections: CloudImportSessionSections = {
@@ -216,24 +216,24 @@ function compileTimeOnly() {
   acceptsTarget({ tag_id: "tag_a00000000000000000000000", type: "tag" });
   // @ts-expect-error Tag targets have no tagId alias.
   acceptsTarget({ tag: "Brand", tagId: "tag_a00000000000000000000000", type: "tag" });
-  // @ts-expect-error Top-level rank checks are not part of v4 exports.
+  // @ts-expect-error Top-level rank checks are not part of v5 exports.
   acceptsPackage({ ...exactPackage, rank_checks: [] });
-  // @ts-expect-error v4 export envelopes use project_id, not projectId.
+  // @ts-expect-error v5 export envelopes use project_id, not projectId.
   acceptsPackage({ ...exactPackage, projectId });
   // @ts-expect-error Session creation requires source_project_id.
-  acceptsSession({ chunk_count: 1, version: 4 });
+  acceptsSession({ chunk_count: 1, version: 5 });
   // @ts-expect-error Session sections accept only snake_case fields.
   acceptsSections({ sourceKeywordIds: {} });
   // @ts-expect-error Session results are job IDs, not ses IDs.
-  acceptsSessionResponse({ ...exactSessionResponse, session_id: "ses_a00000000000000000000000" });
-  // @ts-expect-error v3 is not an accepted migration schema version.
-  acceptsPackage({ ...exactPackage, version: 3 });
+  acceptsSessionResponse({ ...exactSessionResponse, session_id: "sid_a00000000000000000000000" });
+  // @ts-expect-error v4 is not an accepted migration schema version.
+  acceptsPackage({ ...exactPackage, version: 4 });
 }
 
 void compileTimeOnly;
 
-describe("cloud import v4 contract", () => {
-  it("pins the exact exported v4 shapes without compatibility index signatures", () => {
+describe("cloud import v5 contract", () => {
+  it("pins the exact exported v5 shapes without compatibility index signatures", () => {
     expect(cloudImportKeywordKeysMatch).toBe(true);
     expect(cloudImportPackageKeysMatch).toBe(true);
     expect(cloudImportSessionSectionKeysMatch).toBe(true);
@@ -244,7 +244,7 @@ describe("cloud import v4 contract", () => {
     expect(cloudImportSectionsHaveNoStringIndex).toBe(true);
   });
 
-  it("accepts the canonical OpenAPI v4 package, session, chunks, and results", () => {
+  it("accepts the canonical OpenAPI v5 package, session, chunks, and results", () => {
     expect(() => validatePublicIdRequest("/cloud/import", { body: exactPackage })).not.toThrow();
     expect(() =>
       validatePublicIdRequest("/cloud/import/sessions", { body: exactSession }),
@@ -265,7 +265,7 @@ describe("cloud import v4 contract", () => {
         {
           app_version: "2026.07.27",
           latest_migration: null,
-          schema_versions_supported: [4],
+          schema_versions_supported: [5],
         },
         "GET",
       ),
@@ -289,9 +289,9 @@ describe("cloud import v4 contract", () => {
     ).not.toThrow();
   });
 
-  it("rejects v3, raw IDs, legacy aliases, missing IDs, and non-canonical sections", () => {
+  it("rejects v4, raw IDs, legacy aliases, missing IDs, and non-canonical sections", () => {
     for (const body of [
-      { ...exactPackage, version: 3 },
+      { ...exactPackage, version: 4 },
       { ...exactPackage, project_id: "cmmf4qedl0000ym5nmzq3yy7p" },
       { ...exactPackage, projectId },
       { ...exactPackage, rank_checks: [] },
@@ -322,12 +322,12 @@ describe("cloud import v4 contract", () => {
 
     expect(() =>
       validatePublicIdRequest("/cloud/import/sessions", {
-        body: { chunk_count: 1, version: 4 },
+        body: { chunk_count: 1, version: 5 },
       }),
     ).toThrow();
     expect(() =>
       validatePublicIdRequest("/cloud/import/sessions", {
-        body: { chunk_count: 1, source_project_id: "cmmf4qedl0000ym5nmzq3yy7p", version: 4 },
+        body: { chunk_count: 1, source_project_id: "cmmf4qedl0000ym5nmzq3yy7p", version: 5 },
       }),
     ).toThrow();
     expect(() =>
@@ -336,14 +336,14 @@ describe("cloud import v4 contract", () => {
       }),
     ).toThrow();
     expect(() =>
-      validatePublicIdRequest("/cloud/import/sessions/ses_a00000000000000000000000/chunks/0", {
+      validatePublicIdRequest("/cloud/import/sessions/sid_a00000000000000000000000/chunks/0", {
         body: { checksum, kind: "keywords", keywords: [exactKeyword] },
       }),
     ).toThrow();
     expect(() =>
       validatePublicIdResponse(
         "/cloud/import/sessions",
-        { ...exactSessionResponse, session_id: "ses_a00000000000000000000000" },
+        { ...exactSessionResponse, session_id: "sid_a00000000000000000000000" },
         "POST",
       ),
     ).toThrow();
@@ -403,7 +403,7 @@ describe("cloud import v4 contract", () => {
       { ...exactSession, chunk_count: 501 },
       { ...exactSession, totals: { unknown: 1 } },
       { ...exactSession, totals: { keywords: -1 } },
-      { ...exactSession, version: 3 },
+      { ...exactSession, version: 4 },
     ]) {
       expect(() => validatePublicIdRequest("/cloud/import/sessions", { body })).toThrow();
     }

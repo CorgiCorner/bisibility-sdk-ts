@@ -24,32 +24,32 @@ const ids = Object.fromEntries(PUBLIC_ID_PREFIXES.map((prefix) => [prefix, id(pr
   string
 >;
 
-describe("public ID v2 registry", () => {
+describe("public ID v3 registry", () => {
   it("defines the complete canonical resource registry", () => {
     expect(PUBLIC_ID_PREFIXES).toEqual([
-      "alert",
+      "al",
+      "alr",
       "audit",
       "check",
-      "comp",
+      "cmp",
       "conn",
-      "hook",
-      "invite",
-      "job",
+      "dwh",
+      "ferry",
+      "imp",
+      "inv",
       "key",
       "kw",
-      "member",
-      "mtok",
-      "notif",
+      "mbr",
+      "ntf",
       "pat",
       "prj",
-      "rule",
-      "ses",
+      "sid",
       "sig",
-      "skw",
+      "svkw",
       "tag",
       "usr",
-      "view",
-      "webhook",
+      "viw",
+      "we",
     ]);
     expect(Object.keys(PUBLIC_ID_RESOURCE_REGISTRY)).toEqual(PUBLIC_ID_PREFIXES);
   });
@@ -73,6 +73,24 @@ describe("public ID v2 registry", () => {
     }
     expect(() => assertPublicIdOfType("prj_abc123", "prj")).toThrow(publicIdExpectation("prj"));
   });
+
+  it.each([
+    "alert",
+    "rule",
+    "comp",
+    "hook",
+    "invite",
+    "job",
+    "member",
+    "mtok",
+    "notif",
+    "ses",
+    "skw",
+    "view",
+    "webhook",
+  ])("rejects the retired %s prefix", (prefix) => {
+    expect(isPublicId(`${prefix}_${suffix}`)).toBe(false);
+  });
 });
 
 describe("public ID request contract", () => {
@@ -83,16 +101,16 @@ describe("public ID request contract", () => {
       ["rank check", `/rank-checks/${ids.check}`],
       ["api key", `/api-keys/${ids.key}`],
       ["personal token", `/me/tokens/${ids.pat}`],
-      ["webhook", `/projects/${ids.prj}/webhooks/${ids.webhook}`],
+      ["webhook", `/projects/${ids.prj}/webhooks/${ids.we}`],
       ["project-derived sitemap monitor", `/projects/${ids.prj}/sitemap-monitors/${ids.prj}`],
-      ["rule", `/alert-rules/${ids.rule}`],
-      ["alert", `/projects/${ids.prj}/triggered-alerts/${ids.alert}/mute`],
-      ["invite", `/projects/${ids.prj}/team/invites/${ids.invite}`],
-      ["member", `/projects/${ids.prj}/team/members/${ids.member}`],
-      ["view", `/saved-views/${ids.view}`],
-      ["competitor", `/competitors/${ids.comp}`],
-      ["migration token", `/migration-tokens/${ids.mtok}`],
-      ["import job", `/cloud/import/sessions/${ids.job}/finalize`],
+      ["rule", `/alert-rules/${ids.alr}`],
+      ["alert", `/projects/${ids.prj}/triggered-alerts/${ids.al}/mute`],
+      ["invite", `/projects/${ids.prj}/team/invites/${ids.inv}`],
+      ["member", `/projects/${ids.prj}/team/members/${ids.mbr}`],
+      ["view", `/saved-views/${ids.viw}`],
+      ["competitor", `/competitors/${ids.cmp}`],
+      ["migration token", `/migration-tokens/${ids.ferry}`],
+      ["import job", `/cloud/import/sessions/${ids.imp}/finalize`],
     ];
 
     for (const [, path] of validPaths) expect(() => validatePublicIdRequest(path)).not.toThrow();
@@ -148,11 +166,11 @@ describe("public ID request contract", () => {
         query: { connection_id: "conn_abc123" },
       }),
     ).toThrow(publicIdExpectation("conn"));
-    expect(() => validatePublicIdRequest("/cloud/import", { body: { version: 3 } })).toThrow(
-      "Cloud import payload version must be 4.",
+    expect(() => validatePublicIdRequest("/cloud/import", { body: { version: 4 } })).toThrow(
+      "Cloud import payload version must be 5.",
     );
     expect(() =>
-      validatePublicIdRequest(`/cloud/import/sessions/${ids.job}/chunks/0`, {
+      validatePublicIdRequest(`/cloud/import/sessions/${ids.imp}/chunks/0`, {
         body: {
           checksum: `sha256:${"a".repeat(64)}`,
           kind: "sections",
@@ -165,7 +183,7 @@ describe("public ID request contract", () => {
   it("rejects malformed values before fetch, including a caller-supplied project header", async () => {
     const fetchMock = vi.fn();
     const client = new BisibilityClient({
-      apiKey: "bsk_test",
+      apiKey: "bsb_key_test_x",
       baseUrl: "https://api.example.com/api/v1",
       fetch: fetchMock,
     });
@@ -235,7 +253,7 @@ describe("public ID response schema", () => {
 
   it("validates alert recipients and target arrays by target type", () => {
     const keywordRule = {
-      id: ids.rule,
+      id: ids.alr,
       recipient_ids: [ids.usr],
       target_ids: [ids.kw],
       target_type: "keyword",
@@ -244,16 +262,16 @@ describe("public ID response schema", () => {
       validatePublicIdResponse(`/projects/${ids.prj}/alert-rules`, { data: [keywordRule] }),
     ).not.toThrow();
     expect(() =>
-      validatePublicIdResponse(`/alert-rules/${ids.rule}`, {
-        id: ids.rule,
+      validatePublicIdResponse(`/alert-rules/${ids.alr}`, {
+        id: ids.alr,
         recipient_ids: [ids.usr],
         target_ids: [ids.tag],
         target_type: "tag",
       }),
     ).not.toThrow();
     expect(() =>
-      validatePublicIdResponse(`/alert-rules/${ids.rule}`, {
-        id: ids.rule,
+      validatePublicIdResponse(`/alert-rules/${ids.alr}`, {
+        id: ids.alr,
         recipient_ids: [],
         target_ids: [],
         target_type: "all",
@@ -290,7 +308,7 @@ describe("public ID response schema", () => {
       }),
     ).toThrow("must be empty");
     expect(() =>
-      validatePublicIdResponse(`/alert-rules/${ids.rule}`, { deleted: true }, "DELETE"),
+      validatePublicIdResponse(`/alert-rules/${ids.alr}`, { deleted: true }, "DELETE"),
     ).not.toThrow();
     expect(() => validatePublicIdResponse("/projects", { id: "raw" })).not.toThrow();
   });
@@ -299,7 +317,7 @@ describe("public ID response schema", () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          id: ids.rule,
+          id: ids.alr,
           recipient_ids: [ids.prj],
           target_ids: [],
           target_type: "all",
@@ -308,13 +326,13 @@ describe("public ID response schema", () => {
       ),
     );
     const client = new BisibilityClient({
-      apiKey: "bsk_test",
+      apiKey: "bsb_key_test_x",
       baseUrl: "https://api.example.com/api/v1",
       fetch: fetchMock,
     });
 
     await expect(
-      client.updateAlertRule(ids.rule as never, {
+      client.updateAlertRule(ids.alr as never, {
         condition_type: "threshold",
         name: "Ranking drop",
         target_type: "all",

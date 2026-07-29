@@ -334,6 +334,16 @@ function mergeHeaders(first?: HeadersInit, second?: HeadersInit) {
   return headers;
 }
 
+const AUTH_TOKEN_PREFIXES = ["bsb_key_live_", "bsb_key_test_", "bsb_pat_live_", "mig_"] as const;
+
+function validateCredential(value: string | undefined) {
+  if (value !== undefined && !AUTH_TOKEN_PREFIXES.some((prefix) => value.startsWith(prefix))) {
+    throw new BisibilityConfigurationError(
+      "apiKey must use a current bsb_key_live_, bsb_key_test_, bsb_pat_live_, or mig_ prefix.",
+    );
+  }
+}
+
 export class BisibilityClient {
   readonly #apiKey: string | undefined;
   readonly #defaultHeaders: HeadersInit | undefined;
@@ -347,6 +357,7 @@ export class BisibilityClient {
     if (config.projectId !== undefined && !isPublicIdOfType(config.projectId, "prj")) {
       throw new BisibilityConfigurationError("projectId must match prj_[a-z][a-z0-9]{23}.");
     }
+    validateCredential(config.apiKey);
     this.#apiKey = config.apiKey;
     this.baseUrl = normalizeBaseUrl(config.baseUrl);
     this.#defaultHeaders = config.headers;
