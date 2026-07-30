@@ -1,11 +1,22 @@
 {
   "name": "@bisibility/sdk",
-  "version": "0.6.0",
-  "description": "TypeScript SDK for the Bisibility REST API.",
+  "version": "0.6.1",
+  "description": "TypeScript client for the Bisibility API - SEO rank tracking, keywords, and ranking history.",
   "type": "module",
   "license": "Apache-2.0",
   "author": "Corgi Corner",
-  "keywords": ["api-client", "bisibility", "rank-tracking", "sdk", "seo", "typescript"],
+  "keywords": [
+    "api-client",
+    "bisibility",
+    "nodejs",
+    "rank-tracker",
+    "rank-tracking",
+    "sdk",
+    "seo",
+    "seo-tools",
+    "serp",
+    "typescript"
+  ],
   "homepage": "https://bisibility.com",
   "bugs": {
     "url": "https://github.com/CorgiCorner/bisibility-sdk-ts/issues"
