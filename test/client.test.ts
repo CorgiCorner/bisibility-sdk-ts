@@ -854,6 +854,20 @@ describe("BisibilityClient protected resources", () => {
     expect(call.headers.get("X-Request")).toBe("request");
   });
 
+  it("accepts an OAuth access token without applying API key prefix validation", async () => {
+    const accessToken = "opaque-oauth-access-token";
+    fetchMock.mockResolvedValueOnce(jsonResponse(list([project()])));
+    const oauthClient = new BisibilityClient({
+      accessToken,
+      baseUrl: "https://api.example.com/api/v1/",
+      fetch: matchingApiVersionFetch(fetchMock),
+    });
+
+    await oauthClient.listProjects();
+
+    expect(lastCall(fetchMock).headers.get("Authorization")).toBe(`Bearer ${accessToken}`);
+  });
+
   it("does not expose credentials through object inspection or serialization", () => {
     const secret = "bsb_key_live_do_not_log_this";
     const inspectedClient = new BisibilityClient({
@@ -3078,6 +3092,19 @@ describe("BisibilityClient errors", () => {
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );
+
+  it("rejects configuring both an API key and an OAuth access token", () => {
+    expect(
+      () =>
+        new BisibilityClient({
+          accessToken: "opaque-oauth-access-token",
+          apiKey,
+          baseUrl: "https://api.example.com/api/v1",
+          fetch: fetchMock,
+        }),
+    ).toThrow("apiKey and accessToken are mutually exclusive");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
   it("throws a configuration error when fetch is unavailable", async () => {
     const originalFetch = globalThis.fetch;

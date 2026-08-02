@@ -384,7 +384,7 @@ function validateCredential(value: string | undefined) {
 
 export class BisibilityClient {
   #apiVersionPreflight: Promise<void> | undefined;
-  readonly #apiKey: string | undefined;
+  readonly #authorizationToken: string | undefined;
   readonly #defaultHeaders: HeadersInit | undefined;
   readonly #fetchImpl: FetchLike | undefined;
   readonly #maxRetries: number;
@@ -417,8 +417,13 @@ export class BisibilityClient {
     if (config.projectId !== undefined && !isPublicIdOfType(config.projectId, "prj")) {
       throw new BisibilityConfigurationError("projectId must match prj_[a-z][a-z0-9]{23}.");
     }
+    if (config.apiKey !== undefined && config.accessToken !== undefined) {
+      throw new BisibilityConfigurationError(
+        "apiKey and accessToken are mutually exclusive. Pass only one credential.",
+      );
+    }
     validateCredential(config.apiKey);
-    this.#apiKey = config.apiKey;
+    this.#authorizationToken = config.accessToken ?? config.apiKey;
     this.baseUrl = normalizeBaseUrl(config.baseUrl);
     this.#defaultHeaders = config.headers;
     this.#fetchImpl = config.fetch;
@@ -2008,8 +2013,10 @@ export class BisibilityClient {
         "No fetch implementation is available. Pass fetch in BisibilityClient config.",
       );
     }
-    if (options.auth !== false && !this.#apiKey) {
-      throw new BisibilityConfigurationError("apiKey is required for this Bisibility API method.");
+    if (options.auth !== false && !this.#authorizationToken) {
+      throw new BisibilityConfigurationError(
+        "apiKey or accessToken is required for this Bisibility API method.",
+      );
     }
     const headers = mergeHeaders(this.#defaultHeaders, options.headers);
     if (this.#projectId !== undefined && !headers.has("X-Bisibility-Project")) {
@@ -2025,7 +2032,7 @@ export class BisibilityClient {
       await this.ensureApiVersionPreflight(options.signal, options.timeout);
     }
     if (options.auth !== false) {
-      headers.set("Authorization", `Bearer ${this.#apiKey}`);
+      headers.set("Authorization", `Bearer ${this.#authorizationToken}`);
     }
     if (options.idempotencyKey) {
       headers.set("Idempotency-Key", options.idempotencyKey);

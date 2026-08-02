@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.7.2 - 2026-08-02
+
+- Added a separate `accessToken` configuration option for OAuth bearer tokens without applying
+  API key prefix validation.
+
 ## 0.7.1 - 2026-08-02
 
 - Republished the 0.7.0 API surface after correcting release validation; runtime behavior is unchanged.

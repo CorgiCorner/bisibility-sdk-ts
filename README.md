@@ -85,6 +85,15 @@ const project = await bisibility.projects.create({ domain: "example.com", name: 
 await bisibility.apiKeys.create({ name: "CI" }, { projectId: project.id });
 ```
 
+OAuth clients can pass their opaque bearer token as `accessToken`. It is mutually exclusive with
+`apiKey` and does not use API key prefix validation:
+
+```ts
+const bisibility = new BisibilityClient({
+  accessToken: oauth.accessToken,
+});
+```
+
 A custom `fetch` implementation can be injected for older runtimes, proxies, or testing:
 
 ```ts
@@ -94,7 +103,8 @@ const bisibility = new BisibilityClient({
 });
 ```
 
-Protected methods send `Authorization: Bearer <apiKey>`. Write methods accept an optional
+Protected methods send the configured `apiKey` or `accessToken` as `Authorization: Bearer <token>`.
+Write methods accept an optional
 `idempotencyKey` request option, which maps to the server `Idempotency-Key` header.
 Requests set `redirect: "error"` so credentials are never forwarded through an HTTP redirect.
 Custom `fetch` implementations should preserve that behavior.

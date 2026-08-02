@@ -1,6 +1,6 @@
 {
   "name": "@bisibility/sdk",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "TypeScript client for the Bisibility API - SEO rank tracking, keywords, and ranking history.",
   "type": "module",
   "license": "Apache-2.0",

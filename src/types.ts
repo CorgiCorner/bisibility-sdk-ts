@@ -1818,6 +1818,9 @@ export interface RequestOptions {
 }
 
 export interface BisibilityClientConfig {
+  /** OAuth bearer token. Mutually exclusive with apiKey. */
+  accessToken?: string;
+  /** Bisibility project API key, personal access token, or migration token. */
   apiKey?: string;
   baseUrl?: string | URL;
   fetch?: FetchLike;
