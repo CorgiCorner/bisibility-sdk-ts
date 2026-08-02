@@ -7,7 +7,7 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository != 'CorgiCorner/bisibility-sdk-ts' && vars.CI_USE_DEPOT == 'true' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
     timeout-minutes: 10
     strategy:
       matrix:
@@ -42,7 +42,12 @@ jobs:
         run: npm run check:node && npm run lint && npm run typecheck
 
       - name: Test with coverage
+        env:
+          BISIBILITY_OPENAPI_PATH: ${{ runner.temp }}/bisibility-openapi.snapshot.json
         run: |
+          curl --fail --location --silent --show-error \
+            https://raw.githubusercontent.com/CorgiCorner/bisibility/main/docs/openapi.snapshot.json \
+            --output "$BISIBILITY_OPENAPI_PATH"
           if [ "${{ matrix.development-runtime }}" = "true" ]; then
             npm test
           else

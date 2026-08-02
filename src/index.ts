@@ -1,6 +1,8 @@
+export { BISIBILITY_API_VERSION, BISIBILITY_API_VERSION_HEADER } from "./api-version.js";
 export { BisibilityClient, createBisibilityClient } from "./client.js";
 export {
   BisibilityApiError,
+  BisibilityApiVersionError,
   BisibilityConfigurationError,
   BisibilityError,
   BisibilityNetworkError,
@@ -8,6 +10,13 @@ export {
 } from "./errors.js";
 export { iterateCursorPagination } from "./pagination.js";
 export type { CursorPageFetcher } from "./pagination.js";
+export type {
+  ApiKeyCreateScope,
+  ApiKeyListOptions,
+  ClientResourceNamespaces,
+  ProjectResourceSelector,
+  ProjectScope,
+} from "./resources.js";
 export {
   PUBLIC_ID_PREFIXES,
   PUBLIC_ID_RESOURCE_REGISTRY,
@@ -40,6 +49,7 @@ export type {
   BacklinksSummary,
   BisibilityClientConfig,
   Capability,
+  CapabilitiesResponse,
   CloudImportAlertChannel,
   CloudImportAlertConditionType,
   CloudImportAlertRule,
@@ -96,6 +106,10 @@ export type {
   CreateKeywordsResponse,
   CreateMyTokenInput,
   CreateProjectInput,
+  CreateSavedKeywordInput,
+  CreateSavedKeywordResult,
+  CreateSavedKeywordsInput,
+  CreateSavedKeywordsResponse,
   CreateSavedViewInput,
   CreateSignalInput,
   CreateSignalSource,
@@ -103,6 +117,7 @@ export type {
   CreateWebhookInput,
   DataResponse,
   DeleteAlertRuleResponse,
+  DeleteSavedKeywordResponse,
   DeleteSavedViewResponse,
   Device,
   ExportRankHistoryCsvOptions,
@@ -153,6 +168,7 @@ export type {
   ListSearchPerformanceQueryStatsOptions,
   ListSignalsOptions,
   ListTrafficSnapshotsOptions,
+  LivenessResponse,
   LoadMoreBacklinkRowsOptions,
   LocationKind,
   LocationSuggestion,
@@ -206,6 +222,7 @@ export type {
   ProviderSettingsInput,
   ProviderStatus,
   ProviderTestResult,
+  ReadinessResponse,
   RankCheck,
   RankCheckAttempt,
   RankCheckId,
@@ -226,9 +243,12 @@ export type {
   RevokedTeamInvite,
   RunRankCheckInput,
   RunRankCheckOptions,
-  SavedView,
   CompetitorSavedViewConfig,
+  SavedKeyword,
   SavedKeywordId,
+  SavedKeywordStatus,
+  SavedKeywordTrendPoint,
+  SavedView,
   SavedViewId,
   SavedViewConfig,
   SavedViewFilterChange,

@@ -1,3 +1,4 @@
+import { UNSUPPORTED_API_VERSION_PROBLEM_TYPE } from "./api-version.js";
 import type { ProblemDetails } from "./types.js";
 
 export interface BisibilityApiErrorOptions {
@@ -7,6 +8,11 @@ export interface BisibilityApiErrorOptions {
   problem: ProblemDetails | undefined;
   status: number;
   url: string;
+}
+
+export interface BisibilityApiVersionErrorOptions extends BisibilityApiErrorOptions {
+  declaredApiVersion: string;
+  serverApiVersions: readonly string[];
 }
 
 const SENSITIVE_RESPONSE_HEADERS = new Set([
@@ -78,6 +84,22 @@ export class BisibilityApiError extends BisibilityError {
   get retryAfterSeconds() {
     return retryAfterSeconds(this.headers);
   }
+}
+
+export class BisibilityApiVersionError extends BisibilityApiError {
+  readonly declaredApiVersion: string;
+  readonly serverApiVersions: readonly string[];
+
+  constructor(message: string, options: BisibilityApiVersionErrorOptions) {
+    super(message, options);
+    this.name = "BisibilityApiVersionError";
+    this.declaredApiVersion = options.declaredApiVersion;
+    this.serverApiVersions = Object.freeze([...options.serverApiVersions]);
+  }
+}
+
+export function isUnsupportedApiVersionProblem(problem: ProblemDetails | undefined) {
+  return problem?.type === UNSUPPORTED_API_VERSION_PROBLEM_TYPE;
 }
 
 export class BisibilityConfigurationError extends BisibilityError {

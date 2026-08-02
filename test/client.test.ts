@@ -32,6 +32,7 @@ import type {
   KeywordMetricsResponse,
   KeywordResearchResponse,
   ListResponse,
+  LivenessResponse,
   LocationSuggestionsResponse,
   MigrationTokenListResponse,
   NotificationPreferences,
@@ -48,6 +49,8 @@ import type {
   RankCheck,
   RankHistoryExportResponse,
   RankedKeywordSuggestionsResponse,
+  ReadinessResponse,
+  SavedKeyword,
   SavedView,
   SearchPerformanceQueryStatsResponse,
   Signal,
@@ -213,6 +216,23 @@ function keyword(overrides: Partial<Keyword> = {}): Keyword {
     text: "rank tracker",
     topic: null,
     updated_at: "2026-01-04T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function savedKeyword(overrides: Partial<SavedKeyword> = {}): SavedKeyword {
+  return {
+    cpc: null,
+    difficulty: null,
+    id: "svkw_a00000000000000000000000",
+    intent: null,
+    location: "US",
+    saved_at: "2026-08-01T12:00:00.000Z",
+    source_seed: null,
+    text: "rank tracker",
+    trend: [],
+    variant_count: 0,
+    volume: null,
     ...overrides,
   };
 }
@@ -559,9 +579,17 @@ function createClient(
   return new BisibilityClient({
     apiKey,
     baseUrl: "https://api.test/api/v1/",
-    fetch: fetchMock,
+    fetch: matchingApiVersionFetch(fetchMock),
     ...options,
   });
+}
+
+function matchingApiVersionFetch(fetchMock: FetchMock): FetchMock {
+  return vi.fn((input: string | URL | Request, init?: RequestInit) =>
+    String(input).endsWith("/capabilities")
+      ? Promise.resolve(jsonResponse({ apiVersions: ["v1"], data: [] }))
+      : fetchMock(input, init),
+  );
 }
 
 function lastCall(fetchMock: FetchMock) {
@@ -604,20 +632,56 @@ describe("BisibilityClient discovery methods", () => {
   });
 
   it("gets health without requiring an API key", async () => {
-    const body: HealthResponse = {
-      checked_at: "2026-01-01T00:00:00.000Z",
-      providers: { serp: ["dataforseo"] },
-      services: { app: "ok", database: "ok" },
-      status: "ok",
-    };
+    const body: HealthResponse = { status: "ok" };
     fetchMock.mockResolvedValueOnce(jsonResponse(body));
 
-    const client = new BisibilityClient({ baseUrl: "/api/v1", fetch: fetchMock });
+    const client = new BisibilityClient({
+      baseUrl: "/api/v1",
+      fetch: matchingApiVersionFetch(fetchMock),
+    });
     await expect(client.getHealth()).resolves.toEqual(body);
 
     const call = lastCall(fetchMock);
     expect(call.url).toBe("/api/v1/health");
     expect(call.headers.has("Authorization")).toBe(false);
+  });
+
+  it("gets liveness and readiness without requiring an API key", async () => {
+    const liveness: LivenessResponse = { status: "ok" };
+    const readiness: ReadinessResponse = { status: "ok" };
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(liveness))
+      .mockResolvedValueOnce(jsonResponse(readiness));
+
+    const client = new BisibilityClient({
+      baseUrl: "/api/v1",
+      fetch: matchingApiVersionFetch(fetchMock),
+    });
+    await expect(client.getLiveness()).resolves.toEqual(liveness);
+    await expect(client.getReadiness()).resolves.toEqual(readiness);
+
+    const [livenessCall, readinessCall] = fetchMock.mock.calls;
+    expect(String(livenessCall?.[0])).toBe("/api/v1/liveness");
+    expect(String(readinessCall?.[0])).toBe("/api/v1/readiness");
+    expect(new Headers(livenessCall?.[1]?.headers).has("Authorization")).toBe(false);
+    expect(new Headers(readinessCall?.[1]?.headers).has("Authorization")).toBe(false);
+  });
+
+  it("returns degraded health probes on 503 without retrying", async () => {
+    const degraded = { status: "degraded" } as const;
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(degraded, { status: 503 }))
+      .mockResolvedValueOnce(jsonResponse(degraded, { status: 503 }));
+
+    const client = new BisibilityClient({
+      baseUrl: "/api/v1",
+      fetch: matchingApiVersionFetch(fetchMock),
+      maxRetries: 2,
+    });
+
+    await expect(client.getHealth()).resolves.toEqual(degraded);
+    await expect(client.getReadiness()).resolves.toEqual(degraded);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("gets the OpenAPI document", async () => {
@@ -637,7 +701,12 @@ describe("BisibilityClient discovery methods", () => {
     };
     fetchMock.mockResolvedValueOnce(jsonResponse({ data: [capability] }));
 
-    await expect(createClient(fetchMock).getCapabilities()).resolves.toEqual({
+    const client = new BisibilityClient({
+      apiKey,
+      baseUrl: "https://api.test/api/v1/",
+      fetch: fetchMock,
+    });
+    await expect(client.getCapabilities()).resolves.toEqual({
       data: [capability],
     });
     expect(lastCall(fetchMock).url).toBe("https://api.test/api/v1/capabilities");
@@ -654,7 +723,10 @@ describe("BisibilityClient discovery methods", () => {
     const body = { data: [flatProviderRate(), planProviderRate()] };
     fetchMock.mockResolvedValueOnce(jsonResponse(body));
 
-    const client = new BisibilityClient({ baseUrl: "/api/v1", fetch: fetchMock });
+    const client = new BisibilityClient({
+      baseUrl: "/api/v1",
+      fetch: matchingApiVersionFetch(fetchMock),
+    });
     const result = await client.getProviderRates();
 
     expect(result).toEqual(body);
@@ -669,7 +741,10 @@ describe("BisibilityClient discovery methods", () => {
   it("gets a flat cost estimate from query parameters without requiring an API key", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ data: costEstimate() }));
 
-    const client = new BisibilityClient({ baseUrl: "/api/v1", fetch: fetchMock });
+    const client = new BisibilityClient({
+      baseUrl: "/api/v1",
+      fetch: matchingApiVersionFetch(fetchMock),
+    });
     const result = await client.getCostEstimate({
       devices: 1,
       frequency: "daily",
@@ -798,7 +873,10 @@ describe("BisibilityClient protected resources", () => {
   it("uses the default production API URL", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(list([project()])));
 
-    const defaultClient = new BisibilityClient({ apiKey, fetch: fetchMock });
+    const defaultClient = new BisibilityClient({
+      apiKey,
+      fetch: matchingApiVersionFetch(fetchMock),
+    });
     await defaultClient.listProjects();
 
     expect(lastCall(fetchMock).url).toBe("https://bisibility.com/api/v1/projects");
@@ -810,7 +888,7 @@ describe("BisibilityClient protected resources", () => {
     const urlClient = new BisibilityClient({
       apiKey,
       baseUrl: new URL("https://api.test/api/v1/"),
-      fetch: fetchMock,
+      fetch: matchingApiVersionFetch(fetchMock),
     });
     await urlClient.listProjects();
 
@@ -2532,6 +2610,51 @@ describe("BisibilityClient protected resources", () => {
     );
   });
 
+  it("lists, creates, and deletes saved keywords without tracking them", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(list([savedKeyword()], "saved_cursor")));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          duplicate_count: 1,
+          results: [
+            { keyword: "rank tracker", status: "created" },
+            { keyword: "already tracked", status: "skipped" },
+          ],
+          saved_count: 1,
+        },
+        { status: 201 },
+      ),
+    );
+    fetchMock.mockResolvedValueOnce(jsonResponse({ removed_count: 1 }));
+
+    await expect(
+      client.listSavedKeywords("prj_a00000000000000000000000", {
+        cursor: "saved cursor",
+        limit: 2,
+      }),
+    ).resolves.toMatchObject({ data: [{ id: "svkw_a00000000000000000000000" }] });
+    await expect(
+      client.createSavedKeywords("prj_a00000000000000000000000", {
+        keywords: ["rank tracker", { keyword: "already tracked", location: "US" }],
+      }),
+    ).resolves.toMatchObject({ duplicate_count: 1, saved_count: 1 });
+    await expect(
+      client.deleteSavedKeyword("prj_a00000000000000000000000", "svkw_a00000000000000000000000"),
+    ).resolves.toEqual({ removed_count: 1 });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-keywords?cursor=saved+cursor&limit=2",
+    );
+    expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("POST");
+    expectJsonBody(fetchMock.mock.calls[1]?.[1], {
+      keywords: ["rank tracker", { keyword: "already tracked", location: "US" }],
+    });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-keywords/svkw_a00000000000000000000000",
+    );
+    expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("DELETE");
+  });
+
   it("lists, adds, and removes competitors through scoped and top-level routes", async () => {
     const competitorList: CompetitorListResponse = {
       data: [competitor()],
@@ -2718,6 +2841,7 @@ describe("BisibilityClient protected resources", () => {
 
   it("omits pagination query parameters for new list methods when no options are passed", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(list([provider()])));
+    fetchMock.mockResolvedValueOnce(jsonResponse(list([savedKeyword()])));
     fetchMock.mockResolvedValueOnce(jsonResponse(list([savedView()])));
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -2733,6 +2857,7 @@ describe("BisibilityClient protected resources", () => {
     );
 
     await client.listProviders("prj_a00000000000000000000000");
+    await client.listSavedKeywords("prj_a00000000000000000000000");
     await client.listSavedViews("prj_a00000000000000000000000");
     await client.listCompetitors("prj_a00000000000000000000000");
     await client.listMigrationTokens("prj_a00000000000000000000000");
@@ -2741,12 +2866,15 @@ describe("BisibilityClient protected resources", () => {
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers",
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-views",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-keywords",
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/competitors",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/saved-views",
     );
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/competitors",
+    );
+    expect(fetchMock.mock.calls[4]?.[0]).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/migration-tokens",
     );
   });
@@ -2761,7 +2889,7 @@ describe("BisibilityClient protected resources", () => {
 
     const anonymous = new BisibilityClient({
       baseUrl: "https://api.test/api/v1",
-      fetch: fetchMock,
+      fetch: matchingApiVersionFetch(fetchMock),
     });
     await expect(anonymous.getCloudImportCompatibility()).resolves.toEqual(compatibility);
 

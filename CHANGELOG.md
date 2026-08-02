@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+## 0.7.1 - 2026-08-02
+
+- Republished the 0.7.0 API surface after correcting release validation; runtime behavior is unchanged.
+
+## 0.7.0 - 2026-08-02
+
+- **Breaking for typed consumers:** `getHealth()`, `getLiveness()`, and `getReadiness()` now return
+  status-only responses; degraded health and readiness HTTP 503 responses return normally without
+  retries, while other endpoints retain 503 retries.
+- Added resource-oriented namespaces such as `client.keywords.*`, `client.team.*`, and
+  `client.imports.*`; flat methods remain available as deprecated delegates until 1.0.
+- Added typed Saved Keywords list, iterator, create, and delete operations with `svkw` public IDs.
+- Added `Bisibility-API-Version` compatibility declarations, lazy server compatibility checks,
+  and `BisibilityApiVersionError` for unsupported newer server contracts.
+
 ## 0.6.1 - 2026-07-30
 
 - Improved package metadata to describe the SDK's SEO rank-tracking, keyword, and ranking-history

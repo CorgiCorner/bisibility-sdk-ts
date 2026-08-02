@@ -15,6 +15,17 @@ import { validatePublicIdRequest, validatePublicIdResponse } from "../src/public
 
 const suffix = "a00000000000000000000000";
 
+function matchingApiVersionFetch(fetchImpl: typeof globalThis.fetch): typeof globalThis.fetch {
+  return (input, init) =>
+    String(input).endsWith("/capabilities")
+      ? Promise.resolve(
+          new Response(JSON.stringify({ apiVersions: ["v1"], data: [] }), {
+            headers: { "Content-Type": "application/json" },
+          }),
+        )
+      : fetchImpl(input, init);
+}
+
 function id(prefix: PublicIdPrefix) {
   return `${prefix}_${suffix}`;
 }
@@ -185,7 +196,7 @@ describe("public ID request contract", () => {
     const client = new BisibilityClient({
       apiKey: "bsb_key_test_x",
       baseUrl: "https://api.example.com/api/v1",
-      fetch: fetchMock,
+      fetch: matchingApiVersionFetch(fetchMock),
     });
 
     await expect(client.getProject("prj_abc123" as never)).rejects.toBeInstanceOf(
@@ -328,7 +339,7 @@ describe("public ID response schema", () => {
     const client = new BisibilityClient({
       apiKey: "bsb_key_test_x",
       baseUrl: "https://api.example.com/api/v1",
-      fetch: fetchMock,
+      fetch: matchingApiVersionFetch(fetchMock),
     });
 
     await expect(

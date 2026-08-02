@@ -1119,6 +1119,59 @@ export interface ListSavedViewsOptions extends PaginationOptions {
   surface?: SavedViewSurface;
 }
 
+export interface SavedKeywordTrendPoint {
+  month: number;
+  search_volume: number | null;
+  year: number;
+}
+
+export interface SavedKeyword {
+  cpc: number | null;
+  difficulty: number | null;
+  id: SavedKeywordId;
+  intent: string | null;
+  location: string;
+  saved_at: string;
+  source_seed: string | null;
+  text: string;
+  trend: SavedKeywordTrendPoint[];
+  variant_count: number;
+  volume: number | null;
+}
+
+export interface CreateSavedKeywordInput {
+  cpc_cents?: number | null;
+  difficulty?: number | null;
+  intent?: string | null;
+  keyword: string;
+  /** Defaults to the project's primary market when omitted. */
+  location?: string;
+  search_volume?: number | null;
+  source_seed?: string | null;
+  variant_count?: number;
+}
+
+export interface CreateSavedKeywordsInput {
+  keywords: (CreateSavedKeywordInput | string)[];
+}
+
+export type SavedKeywordStatus = "created" | "skipped";
+
+export interface CreateSavedKeywordResult {
+  keyword: string;
+  status: SavedKeywordStatus;
+}
+
+export interface CreateSavedKeywordsResponse {
+  duplicate_count: number;
+  results: CreateSavedKeywordResult[];
+  saved_count: number;
+}
+
+export interface DeleteSavedKeywordResponse {
+  removed_count: number;
+}
+
 export interface SavedView {
   config: SavedViewConfig;
   created_at: string;
@@ -1724,14 +1777,14 @@ export interface PlanCostEstimate extends CostEstimateBase {
 export type CostEstimate = FlatCostEstimate | PlanCostEstimate;
 
 export interface HealthResponse {
-  checked_at: string;
-  providers: {
-    serp: string[];
-  };
-  services: {
-    app: string;
-    database: OpenString<"degraded" | "ok">;
-  };
+  status: OpenString<"degraded" | "ok">;
+}
+
+export interface LivenessResponse {
+  status: OpenString<"ok">;
+}
+
+export interface ReadinessResponse {
   status: OpenString<"degraded" | "ok">;
 }
 
@@ -1740,6 +1793,14 @@ export interface Capability {
   input_schema: JsonObject;
   name: string;
   operationId: string;
+}
+
+export interface CapabilitiesResponse extends DataResponse<Capability[]> {
+  /**
+   * API contracts advertised by version-aware servers.
+   * Absent on older self-hosted servers.
+   */
+  apiVersions?: string[];
 }
 
 export interface OpenApiDocument extends JsonObject {

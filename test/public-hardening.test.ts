@@ -29,7 +29,19 @@ function client(
   fetchImpl: typeof globalThis.fetch,
   options: { maxRetries?: number; timeout?: number | null } = {},
 ) {
-  return new BisibilityClient({ apiKey, baseUrl, fetch: fetchImpl, ...options });
+  return new BisibilityClient({
+    apiKey,
+    baseUrl,
+    fetch: matchingApiVersionFetch(fetchImpl),
+    ...options,
+  });
+}
+
+function matchingApiVersionFetch(fetchImpl: typeof globalThis.fetch): typeof globalThis.fetch {
+  return (input, init) =>
+    String(input).endsWith("/capabilities")
+      ? Promise.resolve(json({ apiVersions: ["v1"], data: [] }))
+      : fetchImpl(input, init);
 }
 
 afterEach(() => {
@@ -225,7 +237,7 @@ describe("BisibilityClient retry and backoff", () => {
     const cause = new Error("stop");
     const fetchMock = vi.fn().mockRejectedValue(new Error("offline"));
     const result = client(fetchMock).listProjects({ signal: controller.signal });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     controller.abort(cause);
 
     await expect(result).rejects.toMatchObject({ cause });
@@ -258,6 +270,7 @@ describe("BisibilityClient resource iterators", () => {
       sdk.iterateTeamMembers("prj_a00000000000000000000000"),
       sdk.iterateTeamInvites("prj_a00000000000000000000000"),
       sdk.iterateProviders("prj_a00000000000000000000000"),
+      sdk.iterateSavedKeywords("prj_a00000000000000000000000"),
       sdk.iterateSavedViews("prj_a00000000000000000000000"),
       sdk.iterateCompetitors("prj_a00000000000000000000000"),
       sdk.iterateMigrationTokens("prj_a00000000000000000000000"),

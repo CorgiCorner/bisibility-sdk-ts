@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> **Status:** Published on npm as v0.4.0.
+> **Status:** Published on npm as v0.6.1.
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -35,11 +35,11 @@ const bisibility = new BisibilityClient({
   apiKey: process.env.BISIBILITY_API_KEY
 });
 
-const projects = await bisibility.listProjects();
+const projects = await bisibility.projects.list();
 const projectId = projects.data[0]?.id;
 
 if (projectId) {
-  const created = await bisibility.addKeywords(projectId, {
+  const created = await bisibility.keywords.add(projectId, {
     keywords: [
       {
         keyword: "rank tracker api",
@@ -51,7 +51,7 @@ if (projectId) {
 
   const keywordId = created.results[0]?.keyword.id;
   if (keywordId) {
-    const check = await bisibility.runRankCheck(keywordId);
+    const check = await bisibility.rankChecks.run(keywordId);
     console.log(check.position, check.ranking_url);
   }
 }
@@ -80,9 +80,9 @@ const bisibility = new BisibilityClient({
   projectId: process.env.BISIBILITY_PROJECT_ID
 });
 
-const me = await bisibility.getMe();
-const project = await bisibility.createProject({ domain: "example.com", name: "Example" });
-await bisibility.createProjectApiKey(project.id, { name: "CI" });
+const me = await bisibility.account.get();
+const project = await bisibility.projects.create({ domain: "example.com", name: "Example" });
+await bisibility.apiKeys.create({ name: "CI" }, { projectId: project.id });
 ```
 
 A custom `fetch` implementation can be injected for older runtimes, proxies, or testing:
@@ -112,7 +112,7 @@ up to 60 seconds.
 Every method accepts per-request options:
 
 ```ts
-await bisibility.listProjects({
+await bisibility.projects.list({
   headers: { "X-Request-Id": "..." },
   signal: controller.signal, // your own AbortSignal
   timeout: 10_000 // ms; composed with `signal` when both are set
@@ -121,6 +121,15 @@ await bisibility.listProjects({
 
 Without an explicit timeout or signal, every attempt has a 30-second timeout. Set `timeout: null`
 on the client or an individual request to opt out.
+
+### API version compatibility
+
+The SDK declares `Bisibility-API-Version: v1` on every request. Before its first ordinary API
+operation, each client lazily checks `/capabilities` once; calling `getCapabilities()` first
+satisfies the same check without a duplicate request. A server that advertises `apiVersions` but
+does not serve `v1` fails with `BisibilityApiVersionError` before the requested operation runs.
+Older servers whose capabilities response has no `apiVersions` field remain compatible, and the
+original request continues normally.
 
 ## Public resource IDs
 
@@ -139,38 +148,38 @@ Locations are identified by `location_key`; they do not expose a location ID.
 Cloud import and export payloads use schema version 5 only. Pagination cursors are opaque SDK
 values; v3 API cursors returned by the server must be passed back unchanged.
 
-## Methods
+## Resource namespaces
 
-- Discovery: `getHealth`, `getOpenApi`, `getCapabilities`, `getLlmsText`, `searchLocations`
-- Public cost (no API key required): `getProviderRates`, `getCostEstimate`
-- Account and personal tokens: `getMe`, `updateMe`, `listMyTokens`, `createMyToken`,
-  `revokeMyToken`
-- Projects: `listProjects`, `createProject`, `getProject`, `updateProject`, `deleteProject`,
-  `updateProjectDefaults`
-- API keys: `listApiKeys`, `createApiKey`, `revokeApiKey`, `listProjectApiKeys`,
-  `createProjectApiKey`
-- Webhooks: `listWebhooks`, `createWebhook`, `updateWebhook`, `deleteWebhook`
-- Keywords: `listKeywords`, `iterateKeywords`, `addKeywords`, `getKeyword`, `updateKeyword`,
-  `setKeywordTargetUrl`, `deleteKeyword`, `bulkUpdateKeywords`, `listRankedKeywordSuggestions`,
-  `researchKeywords`, `getKeywordMetrics`
-- Backlinks: `analyzeBacklinks`, `loadMoreBacklinkRows`
-- Rank checks: `listRankChecks`, `runRankCheck`, `getRankCheckResult`, `exportRankHistory`,
-  `iterateRankHistoryExport`
-- Sitemap monitors: `listSitemapMonitors`, `updateSitemapMonitor`
-- Signals: `createSignal`, `listSignals`
-- Alert rules and triggered alerts: `listAlertRules`, `createAlertRule`, `updateAlertRule`,
-  `deleteAlertRule`, `listTriggeredAlerts`, `muteTriggeredAlert`, `markProjectAlertsRead`
-- Team: `listTeamMembers`, `listTeamInvites`, `createTeamInvite`, `revokeTeamInvite`,
-  `revokeTeamInviteById`, `updateTeamMemberRole`, `removeTeamMember`, `resendTeamInvite`
-- Analytics: `listTrafficSnapshots`, `listSearchPerformanceQueryStats`, `syncProjectTraffic`
-- Providers: `listProviders`, `connectProvider`, `testProviderConnection`,
-  `updateProviderSettings`, `setProviderEnabled`, `enableProvider`, `disableProvider`,
-  `setProviderPriority`, `setPrimaryProvider`, `disconnectProvider`
-- Saved views: `listSavedViews`, `createSavedView`, `deleteSavedView`, `deleteSavedViewById`
-- Competitors: `listCompetitors`, `addCompetitor`, `removeCompetitor`, `removeCompetitorById`
-- Notification preferences: `getNotificationPreferences`, `updateNotificationPreferences`
-- Migration tokens: `listMigrationTokens`, `mintMigrationToken`, `revokeMigrationToken`,
-  `revokeMigrationTokenById`
+The client groups operations by resource. Existing flat methods remain available as deprecated
+compatibility delegates until 1.0.
+
+| Namespace | Methods |
+| - | - |
+| `system` | `getHealth`, `getLiveness`, `getReadiness`, `getCapabilities`, `getOpenApi`, `getLlmsText` |
+| `pricing` | `getRates`, `estimate` |
+| `locations` | `search` |
+| `account` | `get`, `update`, plus `tokens.list`, `tokens.create`, `tokens.revoke` |
+| `projects` | `list`, `create`, `get`, `update`, `delete`, `getDefaults`, `updateDefaults` |
+| `apiKeys` | `list`, `iterate`, `create`, `revoke` |
+| `webhooks` | `list`, `iterate`, `create`, `update`, `delete` |
+| `keywords` | `list`, `iterate`, `add`, `get`, `update`, `setTargetUrl`, `delete`, `bulkUpdate`, `match`, `research`, plus `suggestions.list`, `metrics.get` |
+| `backlinks` | `analyze`, `extendSnapshot` |
+| `rankChecks` | `list`, `iterate`, `run`, `getResult`, plus `history.export`, `history.iterate` |
+| `sitemapMonitors` | `list`, `update` |
+| `signals` | `list`, `iterate`, `create` |
+| `analytics` | `overview.get`, `traffic.list`, `traffic.sync`, `searchPerformance.list` |
+| `alertRules` | `list`, `iterate`, `create`, `update`, `delete` |
+| `alerts` | `list`, `iterate`, `mute`, `markAllRead` |
+| `notificationSettings` | `get`, `update` |
+| `team` | `members.*` and `invites.*` |
+| `providers` | `list`, `iterate`, `connect`, `test`, `updateSettings`, `setEnabled`, `setPriority`, `setPrimary`, `disconnect` |
+| `savedViews` | `list`, `iterate`, `create`, `delete` |
+| `competitors` | `list`, `iterate`, `add`, `remove` |
+| `imports` | `runFromExport`, plus `compatibility.*`, `tokens.*`, `sessions.*` |
+
+`apiKeys.list()` and `apiKeys.create()` use the current project selected by authentication. Pass
+`{ projectId }` to select the explicit project route. A personal access token spanning multiple
+projects must pass `projectId` because the top-level route cannot select a project unambiguously.
 
 List methods return `{ data, meta }` with `meta.next_cursor`. Resource methods return the resource
 object directly, matching the Bisibility API response shape.
@@ -179,7 +188,7 @@ Every cursor-paginated list has an `iterate*` counterpart that preserves filters
 across all pages:
 
 ```ts
-for await (const keyword of bisibility.iterateKeywords(projectId, { device: "desktop" })) {
+for await (const keyword of bisibility.keywords.iterate(projectId, { device: "desktop" })) {
   console.log(keyword.text);
 }
 ```
@@ -191,12 +200,12 @@ endpoints.
 
 ### Keyword research and metrics
 
-`researchKeywords` runs a paid, cached DataForSEO lookup for one seed. Select the research depth
+`keywords.research` runs a paid, cached DataForSEO lookup for one seed. Select the research depth
 up front with `resultLimit`; this endpoint does not use offset pagination. It requires API write
 scope because a cache miss can spend the project's provider budget:
 
 ```ts
-const research = await bisibility.researchKeywords(projectId, {
+const research = await bisibility.keywords.research(projectId, {
   seed: "rank tracker",
   mode: "auto",
   resultLimit: 300,
@@ -208,11 +217,11 @@ const research = await bisibility.researchKeywords(projectId, {
 Set `estimateOnly: true` for a free cache-aware dry run before a cost-sensitive request. Source
 diagnostics report `ok`, `failed`, or `skipped`, with a machine-readable reason when applicable.
 
-`getKeywordMetrics` hydrates provider metrics for one to 700 keywords. Its input mirrors the API
+`keywords.metrics.get` hydrates provider metrics for one to 700 keywords. Its input mirrors the API
 request body, cached rows do not contribute to `cost_cents`, and API write scope is required:
 
 ```ts
-const metrics = await bisibility.getKeywordMetrics(projectId, {
+const metrics = await bisibility.keywords.metrics.get(projectId, {
   keywords: ["rank tracker", "seo api"],
   include_clickstream: false,
   estimate_only: true,
@@ -228,11 +237,11 @@ provider market does not supply them.
 
 ### Project defaults
 
-`updateProjectDefaults(projectId, patch)` sends `PATCH /projects/{id}/defaults` and returns the
+`projects.updateDefaults(projectId, patch)` sends `PATCH /projects/{id}/defaults` and returns the
 persisted `ProjectDefaults` (default market, schedule, and timezone for new keywords):
 
 ```ts
-await bisibility.updateProjectDefaults(projectId, {
+await bisibility.projects.updateDefaults(projectId, {
   country: "United States",
   device: "desktop",
   frequency: "daily"
@@ -241,35 +250,35 @@ await bisibility.updateProjectDefaults(projectId, {
 
 ### Asynchronous rank checks
 
-`runRankCheck` runs synchronously by default. Pass `async: true` to enqueue the check instead;
+`rankChecks.run` runs synchronously by default. Pass `async: true` to enqueue the check instead;
 the server responds `202` with a `RankCheck` in `status: "running"` that you can poll via
 `getRankCheckResult`:
 
 ```ts
-const queued = await bisibility.runRankCheck(keywordId, undefined, { async: true });
+const queued = await bisibility.rankChecks.run(keywordId, undefined, { async: true });
 // queued.status === "running"
-const result = await bisibility.getRankCheckResult(queued.id);
+const result = await bisibility.rankChecks.getResult(queued.id);
 ```
 
 Failed checks carry `status: "failed"`, an `error` message, and provider fallback `attempts`.
 
 ### Signals
 
-`createSignal` ingests a signal (`POST /signals`) into the project tied to your API key;
+`signals.create` ingests a signal (`POST /signals`) into the project tied to your API key;
 `source` must be `"deploy"`, `"cms"`, or `"api"`, and `type` follows the
 `category.event` pattern (for example `deploy.completed`). `listSignals(projectId, options)`
 pages through a project's signals newest first with optional `source`, `type`, `from`, and `to`
 filters:
 
 ```ts
-await bisibility.createSignal({
+await bisibility.signals.create({
   source: "deploy",
   type: "deploy.completed",
   payload: { version: "1.2.3" }, // <= 8KB serialized
   url: "https://example.com/releases/1"
 });
 
-const recent = await bisibility.listSignals(projectId, {
+const recent = await bisibility.signals.list(projectId, {
   source: "deploy",
   from: "2026-07-01T00:00:00.000Z"
 });
@@ -277,11 +286,11 @@ const recent = await bisibility.listSignals(projectId, {
 
 ### Public cost estimates
 
-`getProviderRates` and `getCostEstimate` are anonymous and work without an `apiKey`:
+`pricing.getRates` and `pricing.estimate` are anonymous and work without an `apiKey`:
 
 ```ts
-const rates = await bisibility.getProviderRates();
-const estimate = await bisibility.getCostEstimate({
+const rates = await bisibility.pricing.getRates();
+const estimate = await bisibility.pricing.estimate({
   keywords: 250,
   frequency: "daily",
   provider: "dataforseo",
@@ -293,19 +302,23 @@ const estimate = await bisibility.getCostEstimate({
 ## Errors
 
 All SDK errors extend `BisibilityError`; its concrete subclasses are `BisibilityApiError`,
-`BisibilityConfigurationError`, `BisibilityNetworkError`, and `BisibilityResponseError`. The
-original RFC problem details body is available on API errors as `error.problem`. API errors also
-provide `isRateLimit`, `isNotFound`, and `retryAfterSeconds`. `error.headers` retains ordinary
-response headers while credential and cookie headers are removed before the error is exposed to
-application logs.
+`BisibilityApiVersionError`, `BisibilityConfigurationError`, `BisibilityNetworkError`, and
+`BisibilityResponseError`. `BisibilityApiVersionError` also extends `BisibilityApiError` and exposes
+the declared version as `declaredApiVersion` plus the server advertisement as
+`serverApiVersions`. The original RFC problem details body is available on API errors as
+`error.problem`. API errors also provide `isRateLimit`, `isNotFound`, and `retryAfterSeconds`.
+`error.headers` retains ordinary response headers while credential and cookie headers are removed
+before the error is exposed to application logs.
 
 ```ts
-import { BisibilityApiError } from "@bisibility/sdk";
+import { BisibilityApiError, BisibilityApiVersionError } from "@bisibility/sdk";
 
 try {
-  await bisibility.getKeyword("kw_z9y8x7w6v5u4t3s2r1q0p9n8");
+  await bisibility.keywords.get("kw_z9y8x7w6v5u4t3s2r1q0p9n8");
 } catch (error) {
-  if (error instanceof BisibilityApiError) {
+  if (error instanceof BisibilityApiVersionError) {
+    console.error(error.declaredApiVersion, error.serverApiVersions);
+  } else if (error instanceof BisibilityApiError) {
     console.error(error.status, error.problem?.detail);
   }
 }

@@ -711,6 +711,9 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
   if (first === "projects" && second && third === "saved-views" && fourth) {
     assertId(fourth, "viw", "viewId");
   }
+  if (first === "projects" && second && third === "saved-keywords" && fourth) {
+    assertId(fourth, "svkw", "savedKeywordId");
+  }
 
   if (first === "keywords" && second === "bulk") {
     assertIdArray(object(contract.body)?.keyword_ids, "kw", "keyword_ids");

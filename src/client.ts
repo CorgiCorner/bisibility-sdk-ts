@@ -1,12 +1,20 @@
 import {
+  BISIBILITY_API_VERSION,
+  BISIBILITY_API_VERSION_HEADER,
+  UNSUPPORTED_API_VERSION_PROBLEM_TYPE,
+} from "./api-version.js";
+import {
   BisibilityApiError,
+  BisibilityApiVersionError,
   BisibilityConfigurationError,
   BisibilityNetworkError,
   BisibilityResponseError,
+  isUnsupportedApiVersionProblem,
 } from "./errors.js";
 import { iterateCursorPagination } from "./pagination.js";
 import { validatePublicIdRequest, validatePublicIdResponse } from "./public-id-contract.js";
 import { isPublicIdOfType } from "./public-id.js";
+import { type ClientResourceNamespaces, installResourceNamespaces } from "./resources.js";
 import type {
   AddCompetitorInput,
   AlertId,
@@ -17,7 +25,7 @@ import type {
   ApiKeyId,
   BacklinksSnapshot,
   BisibilityClientConfig,
-  Capability,
+  CapabilitiesResponse,
   CloudImportChunkResponse,
   CloudImportCompatibility,
   CloudImportFinalizeResponse,
@@ -37,6 +45,8 @@ import type {
   CreateKeywordsResponse,
   CreateMyTokenInput,
   CreateProjectInput,
+  CreateSavedKeywordsInput,
+  CreateSavedKeywordsResponse,
   CreateSavedViewInput,
   CreateSignalInput,
   CreateTeamInviteInput,
@@ -46,6 +56,7 @@ import type {
   CreatedTeamInvite,
   DataResponse,
   DeleteAlertRuleResponse,
+  DeleteSavedKeywordResponse,
   DeleteSavedViewResponse,
   ExportRankHistoryCsvOptions,
   ExportRankHistoryJsonOptions,
@@ -71,6 +82,7 @@ import type {
   ListSearchPerformanceQueryStatsOptions,
   ListSignalsOptions,
   ListTrafficSnapshotsOptions,
+  LivenessResponse,
   LoadMoreBacklinkRowsOptions,
   LocationSuggestionsResponse,
   Me,
@@ -100,6 +112,7 @@ import type {
   RankCheckId,
   RankHistoryExportResponse,
   RankedKeywordSuggestionsResponse,
+  ReadinessResponse,
   RemoveCompetitorResponse,
   RequestOptions,
   ResearchKeywordsOptions,
@@ -107,6 +120,8 @@ import type {
   RevokedTeamInvite,
   RunRankCheckInput,
   RunRankCheckOptions,
+  SavedKeyword,
+  SavedKeywordId,
   SavedView,
   SavedViewId,
   SearchLocationsOptions,
@@ -150,10 +165,12 @@ type QueryValue = QueryScalar | readonly QueryScalar[];
 type QueryParams = Record<string, QueryValue>;
 
 interface InternalRequestOptions extends RequestOptions {
+  acceptedStatuses?: readonly number[];
   auth?: boolean;
   body?: unknown;
   parseAs?: "json" | "text";
   query?: QueryParams;
+  skipApiVersionPreflight?: boolean;
 }
 
 function isAbsoluteUrl(value: string) {
@@ -195,6 +212,27 @@ function stringOrUndefined(value: unknown) {
 
 function numberOrUndefined(value: unknown) {
   return typeof value === "number" ? value : undefined;
+}
+
+function apiVersionErrorDetails(problem: ProblemDetails | undefined) {
+  if (!problem?.errors || typeof problem.errors !== "object") {
+    return {
+      declaredApiVersion: BISIBILITY_API_VERSION,
+      serverApiVersions: [] as string[],
+    };
+  }
+
+  const errors = problem.errors as Record<string, unknown>;
+  const serverApiVersions = Array.isArray(errors.apiVersions)
+    ? errors.apiVersions.filter((version): version is string => typeof version === "string")
+    : [];
+  return {
+    declaredApiVersion:
+      typeof errors.declaredApiVersion === "string"
+        ? errors.declaredApiVersion
+        : BISIBILITY_API_VERSION,
+    serverApiVersions,
+  };
 }
 
 function problemFromJson(value: unknown): ProblemDetails | undefined {
@@ -345,13 +383,35 @@ function validateCredential(value: string | undefined) {
 }
 
 export class BisibilityClient {
+  #apiVersionPreflight: Promise<void> | undefined;
   readonly #apiKey: string | undefined;
   readonly #defaultHeaders: HeadersInit | undefined;
   readonly #fetchImpl: FetchLike | undefined;
   readonly #maxRetries: number;
   readonly #projectId: ProjectId | undefined;
   readonly #timeout: number | null | undefined;
+  declare readonly account: ClientResourceNamespaces["account"];
+  declare readonly alertRules: ClientResourceNamespaces["alertRules"];
+  declare readonly alerts: ClientResourceNamespaces["alerts"];
+  declare readonly analytics: ClientResourceNamespaces["analytics"];
+  declare readonly apiKeys: ClientResourceNamespaces["apiKeys"];
+  declare readonly backlinks: ClientResourceNamespaces["backlinks"];
   readonly baseUrl: string;
+  declare readonly competitors: ClientResourceNamespaces["competitors"];
+  declare readonly imports: ClientResourceNamespaces["imports"];
+  declare readonly keywords: ClientResourceNamespaces["keywords"];
+  declare readonly locations: ClientResourceNamespaces["locations"];
+  declare readonly notificationSettings: ClientResourceNamespaces["notificationSettings"];
+  declare readonly pricing: ClientResourceNamespaces["pricing"];
+  declare readonly projects: ClientResourceNamespaces["projects"];
+  declare readonly providers: ClientResourceNamespaces["providers"];
+  declare readonly rankChecks: ClientResourceNamespaces["rankChecks"];
+  declare readonly savedViews: ClientResourceNamespaces["savedViews"];
+  declare readonly signals: ClientResourceNamespaces["signals"];
+  declare readonly sitemapMonitors: ClientResourceNamespaces["sitemapMonitors"];
+  declare readonly system: ClientResourceNamespaces["system"];
+  declare readonly team: ClientResourceNamespaces["team"];
+  declare readonly webhooks: ClientResourceNamespaces["webhooks"];
 
   constructor(config: BisibilityClientConfig = {}) {
     if (config.projectId !== undefined && !isPublicIdOfType(config.projectId, "prj")) {
@@ -365,23 +425,50 @@ export class BisibilityClient {
     this.#maxRetries = validatedMaxRetries(config.maxRetries);
     this.#projectId = config.projectId;
     this.#timeout = validatedTimeout(config.timeout);
+    installResourceNamespaces(this);
   }
 
+  /** @deprecated Use `client.system.getHealth()`. */
   getHealth(options?: RequestOptions) {
-    return this.request<HealthResponse>("GET", "/health", { ...options, auth: false });
-  }
-
-  getOpenApi(options?: RequestOptions) {
-    return this.request<OpenApiDocument>("GET", "/openapi.json", { ...options, auth: false });
-  }
-
-  getCapabilities(options?: RequestOptions) {
-    return this.request<DataResponse<Capability[]>>("GET", "/capabilities", {
+    return this.request<HealthResponse>("GET", "/health", {
       ...options,
+      acceptedStatuses: [503],
       auth: false,
     });
   }
 
+  /** @deprecated Use `client.system.getLiveness()`. */
+  getLiveness(options?: RequestOptions) {
+    return this.request<LivenessResponse>("GET", "/liveness", { ...options, auth: false });
+  }
+
+  /** @deprecated Use `client.system.getReadiness()`. */
+  getReadiness(options?: RequestOptions) {
+    return this.request<ReadinessResponse>("GET", "/readiness", {
+      ...options,
+      acceptedStatuses: [503],
+      auth: false,
+    });
+  }
+
+  /** @deprecated Use `client.system.getOpenApi()`. */
+  getOpenApi(options?: RequestOptions) {
+    return this.request<OpenApiDocument>("GET", "/openapi.json", { ...options, auth: false });
+  }
+
+  /** @deprecated Use `client.system.getCapabilities()`. */
+  async getCapabilities(options?: RequestOptions) {
+    const response = await this.request<CapabilitiesResponse>("GET", "/capabilities", {
+      ...options,
+      auth: false,
+      skipApiVersionPreflight: true,
+    });
+    this.assertApiVersionCompatible(response);
+    this.#apiVersionPreflight ??= Promise.resolve();
+    return response;
+  }
+
+  /** @deprecated Use `client.system.getLlmsText()`. */
   getLlmsText(options?: RequestOptions) {
     return this.request<string>("GET", "/llms.txt", {
       ...options,
@@ -390,6 +477,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.pricing.getRates()`. */
   getProviderRates(options?: RequestOptions) {
     return this.request<DataResponse<ProviderRate[]>>("GET", "/provider-rates", {
       ...options,
@@ -397,6 +485,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.pricing.estimate()`. */
   getCostEstimate(input: GetCostEstimateOptions, options?: RequestOptions) {
     return this.request<DataResponse<CostEstimate>>("GET", "/cost-estimate", {
       ...options,
@@ -413,6 +502,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.locations.search()`. */
   searchLocations(input: SearchLocationsOptions, options?: RequestOptions) {
     return this.request<LocationSuggestionsResponse>("GET", "/locations/search", {
       ...options,
@@ -424,18 +514,22 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.account.get()`. */
   getMe(options?: RequestOptions) {
     return this.request<Me>("GET", "/me", options);
   }
 
+  /** @deprecated Use `client.account.update()`. */
   updateMe(input: UpdateMeInput, options?: RequestOptions) {
     return this.request<Me>("PATCH", "/me", { ...options, body: input });
   }
 
+  /** @deprecated Use `client.account.tokens.list()`. */
   listMyTokens(options?: RequestOptions) {
     return this.request<ListResponse<PersonalAccessToken>>("GET", "/me/tokens", options);
   }
 
+  /** @deprecated Use `client.account.tokens.create()`. */
   createMyToken(input: CreateMyTokenInput, options?: RequestOptions) {
     return this.request<CreatedPersonalAccessToken>("POST", "/me/tokens", {
       ...options,
@@ -443,6 +537,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.account.tokens.revoke()`. */
   revokeMyToken(tokenId: PersonalAccessToken["id"] | "current", options?: RequestOptions) {
     return this.request<PersonalAccessToken>(
       "DELETE",
@@ -451,10 +546,12 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.projects.list()`. */
   listProjects(options?: RequestOptions) {
     return this.request<ListResponse<Project>>("GET", "/projects", options);
   }
 
+  /** @deprecated Use `client.projects.create()`. */
   createProject(input: CreateProjectInput, options?: RequestOptions) {
     return this.request<Project>("POST", "/projects", {
       ...options,
@@ -462,10 +559,12 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.projects.get()`. */
   getProject(projectId: ProjectId, options?: RequestOptions) {
     return this.request<Project>("GET", `/projects/${encodedPathSegment(projectId)}`, options);
   }
 
+  /** @deprecated Use `client.projects.update()`. */
   updateProject(projectId: ProjectId, input: UpdateProjectInput, options?: RequestOptions) {
     return this.request<Project>("PATCH", `/projects/${encodedPathSegment(projectId)}`, {
       ...options,
@@ -473,10 +572,12 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.projects.delete()`. */
   deleteProject(projectId: ProjectId, options?: RequestOptions) {
     return this.request<Project>("DELETE", `/projects/${encodedPathSegment(projectId)}`, options);
   }
 
+  /** @deprecated Use `client.projects.getDefaults()`. */
   getProjectDefaults(projectId: ProjectId, options?: RequestOptions) {
     return this.request<ProjectDefaults>(
       "GET",
@@ -485,6 +586,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.analytics.overview.get()`. */
   getProjectOverview(
     projectId: ProjectId,
     options?: ProjectOverviewOptions,
@@ -506,6 +608,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.keywords.match()`. */
   matchProjectKeywords(
     projectId: ProjectId,
     input: KeywordMatchRequest,
@@ -518,6 +621,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.projects.updateDefaults()`. */
   updateProjectDefaults(
     projectId: ProjectId,
     input: ProjectDefaultsPatch,
@@ -530,6 +634,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.apiKeys.list()`. */
   listApiKeys(options?: PaginationOptions, requestOptions?: RequestOptions) {
     const pagination = options ?? {};
 
@@ -542,6 +647,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.apiKeys.iterate()`. */
   iterateApiKeys(options: PaginationOptions = {}, requestOptions?: RequestOptions) {
     return iterateCursorPagination(
       (pageOptions) => this.listApiKeys(pageOptions, requestOptions),
@@ -549,14 +655,17 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.apiKeys.create()`. */
   createApiKey(input: CreateApiKeyInput, options?: RequestOptions) {
     return this.request<CreatedApiKey>("POST", "/api-keys", { ...options, body: input });
   }
 
+  /** @deprecated Use `client.apiKeys.revoke()`. */
   revokeApiKey(keyId: ApiKeyId, options?: RequestOptions) {
     return this.request<ApiKey>("DELETE", `/api-keys/${encodedPathSegment(keyId)}`, options);
   }
 
+  /** @deprecated Use `client.apiKeys.list({ projectId })`. */
   listProjectApiKeys(
     projectId: ProjectId,
     options?: PaginationOptions,
@@ -577,6 +686,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.apiKeys.iterate({ projectId })`. */
   iterateProjectApiKeys(
     projectId: ProjectId,
     options: PaginationOptions = {},
@@ -588,7 +698,8 @@ export class BisibilityClient {
     );
   }
 
-  createProjectApiKey(projectId: ProjectId, input: { name: string }, options?: RequestOptions) {
+  /** @deprecated Use `client.apiKeys.create(input, { projectId })`. */
+  createProjectApiKey(projectId: ProjectId, input: CreateApiKeyInput, options?: RequestOptions) {
     return this.request<CreatedApiKey>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/api-keys`,
@@ -596,6 +707,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.webhooks.list()`. */
   listWebhooks(projectId: ProjectId, options?: PaginationOptions, requestOptions?: RequestOptions) {
     const pagination = options ?? {};
 
@@ -612,6 +724,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.webhooks.iterate()`. */
   iterateWebhooks(
     projectId: ProjectId,
     options: PaginationOptions = {},
@@ -623,6 +736,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.webhooks.create()`. */
   createWebhook(projectId: ProjectId, input: CreateWebhookInput, options?: RequestOptions) {
     return this.request<Webhook>("POST", `/projects/${encodedPathSegment(projectId)}/webhooks`, {
       ...options,
@@ -630,6 +744,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.webhooks.update()`. */
   updateWebhook(
     projectId: ProjectId,
     webhookId: WebhookId,
@@ -643,6 +758,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.webhooks.delete()`. */
   deleteWebhook(projectId: ProjectId, webhookId: WebhookId, options?: RequestOptions) {
     return this.request<Webhook>(
       "DELETE",
@@ -651,6 +767,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.keywords.list()`. */
   listKeywords(
     projectId: ProjectId,
     options?: ListKeywordsOptions,
@@ -680,6 +797,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.keywords.iterate()`. */
   iterateKeywords(
     projectId: ProjectId,
     options: ListKeywordsOptions = {},
@@ -691,6 +809,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.keywords.add()`. */
   addKeywords(projectId: ProjectId, input: CreateKeywordsInput, options?: RequestOptions) {
     return this.request<CreateKeywordsResponse>(
       "POST",
@@ -699,10 +818,12 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.keywords.get()`. */
   getKeyword(keywordId: KeywordId, options?: RequestOptions) {
     return this.request<Keyword>("GET", `/keywords/${encodedPathSegment(keywordId)}`, options);
   }
 
+  /** @deprecated Use `client.keywords.update()`. */
   updateKeyword(keywordId: KeywordId, input: UpdateKeywordInput, options?: RequestOptions) {
     return this.request<Keyword>("PATCH", `/keywords/${encodedPathSegment(keywordId)}`, {
       ...options,
@@ -710,10 +831,12 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.keywords.setTargetUrl()`. */
   setKeywordTargetUrl(keywordId: KeywordId, targetUrl: string | null, options?: RequestOptions) {
     return this.updateKeyword(keywordId, { target_url: targetUrl }, options);
   }
 
+  /** @deprecated Use `client.keywords.delete()`. */
   deleteKeyword(keywordId: KeywordId, options?: RequestOptions) {
     return this.requestOrUndefined<Keyword>(
       "DELETE",
@@ -722,10 +845,12 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.keywords.bulkUpdate()`. */
   bulkUpdateKeywords(input: KeywordBulkInput, options?: RequestOptions) {
     return this.request<KeywordBulkResponse>("POST", "/keywords/bulk", { ...options, body: input });
   }
 
+  /** @deprecated Use `client.keywords.suggestions.list()`. */
   listRankedKeywordSuggestions(
     projectId: ProjectId,
     options?: ListRankedKeywordSuggestionsOptions,
@@ -751,6 +876,7 @@ export class BisibilityClient {
   /**
    * Research keywords from one seed. This operation requires API write scope because a cache
    * miss can spend the project's provider budget. Use `estimateOnly` for a free dry run.
+   * @deprecated Use `client.keywords.research()`.
    */
   researchKeywords(
     projectId: ProjectId,
@@ -780,6 +906,7 @@ export class BisibilityClient {
    * Analyze backlinks. This operation requires API write scope because a cache miss can spend the
    * project's provider budget. Use `estimateOnly` (`estimate_only` on the wire) for a free dry
    * run.
+   * @deprecated Use `client.backlinks.analyze()`.
    */
   analyzeBacklinks(
     projectId: ProjectId,
@@ -808,6 +935,7 @@ export class BisibilityClient {
   /**
    * Load more rows into an unexpired backlinks snapshot. This operation requires API write scope
    * and spends provider budget.
+   * @deprecated Use `client.backlinks.extendSnapshot()`.
    */
   loadMoreBacklinkRows(
     projectId: ProjectId,
@@ -832,6 +960,7 @@ export class BisibilityClient {
   /**
    * Hydrate keyword metrics. This operation requires API write scope because cache misses can
    * spend the project's provider budget. Use `estimate_only` for a free dry run.
+   * @deprecated Use `client.keywords.metrics.get()`.
    */
   getKeywordMetrics(projectId: ProjectId, input: GetKeywordMetricsInput, options?: RequestOptions) {
     return this.request<KeywordMetricsResponse>(
@@ -841,16 +970,19 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.rankChecks.history.export()`. */
   exportRankHistory(
     projectId: ProjectId,
     options: ExportRankHistoryCsvOptions,
     requestOptions?: RequestOptions,
   ): Promise<string>;
+  /** @deprecated Use `client.rankChecks.history.export()`. */
   exportRankHistory(
     projectId: ProjectId,
     options?: ExportRankHistoryJsonOptions,
     requestOptions?: RequestOptions,
   ): Promise<RankHistoryExportResponse>;
+  /** @deprecated Use `client.rankChecks.history.export()`. */
   exportRankHistory(
     projectId: ProjectId,
     options: ExportRankHistoryCsvOptions | ExportRankHistoryJsonOptions = {},
@@ -874,6 +1006,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.rankChecks.history.iterate()`. */
   iterateRankHistoryExport(
     projectId: ProjectId,
     options: ExportRankHistoryJsonOptions = {},
@@ -890,6 +1023,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.sitemapMonitors.list()`. */
   listSitemapMonitors(projectId: ProjectId, options?: RequestOptions) {
     return this.request<SitemapMonitorListResponse>(
       "GET",
@@ -898,6 +1032,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.sitemapMonitors.update()`. */
   updateSitemapMonitor(
     projectId: ProjectId,
     monitorId: ProjectId,
@@ -911,6 +1046,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.rankChecks.list()`. */
   listRankChecks(
     keywordId: KeywordId,
     options?: ListRankChecksOptions,
@@ -934,6 +1070,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.rankChecks.iterate()`. */
   iterateRankChecks(
     keywordId: KeywordId,
     options: ListRankChecksOptions = {},
@@ -945,6 +1082,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.rankChecks.run()`. */
   runRankCheck(keywordId: KeywordId, input?: RunRankCheckInput, options?: RunRankCheckOptions) {
     const { async: runAsync, ...requestOptions } = options ?? {};
     const body = input && Object.keys(input).length ? input : undefined;
@@ -956,14 +1094,17 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.rankChecks.getResult()`. */
   getRankCheckResult(checkId: RankCheckId, options?: RequestOptions) {
     return this.request<RankCheck>("GET", `/rank-checks/${encodedPathSegment(checkId)}`, options);
   }
 
+  /** @deprecated Use `client.signals.create()`. */
   createSignal(input: CreateSignalInput, options?: RequestOptions) {
     return this.request<Signal>("POST", "/signals", { ...options, body: input });
   }
 
+  /** @deprecated Use `client.signals.list()`. */
   listSignals(projectId: ProjectId, options?: ListSignalsOptions, requestOptions?: RequestOptions) {
     const filters = options ?? {};
 
@@ -984,6 +1125,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.signals.iterate()`. */
   iterateSignals(
     projectId: ProjectId,
     options: ListSignalsOptions = {},
@@ -995,6 +1137,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.analytics.traffic.list()`. */
   listTrafficSnapshots(
     projectId: ProjectId,
     options: ListTrafficSnapshotsOptions,
@@ -1016,6 +1159,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.analytics.searchPerformance.list()`. */
   listSearchPerformanceQueryStats(
     projectId: ProjectId,
     options: ListSearchPerformanceQueryStatsOptions,
@@ -1037,6 +1181,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.analytics.traffic.sync()`. */
   syncProjectTraffic(projectId: ProjectId, options?: RequestOptions) {
     return this.request<TrafficSyncSummary>(
       "POST",
@@ -1045,6 +1190,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.alertRules.list()`. */
   listAlertRules(
     projectId: ProjectId,
     options?: PaginationOptions,
@@ -1065,6 +1211,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.alertRules.iterate()`. */
   iterateAlertRules(
     projectId: ProjectId,
     options: PaginationOptions = {},
@@ -1076,6 +1223,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.alertRules.create()`. */
   createAlertRule(projectId: ProjectId, input: CreateAlertRuleInput, options?: RequestOptions) {
     return this.request<AlertRule>(
       "POST",
@@ -1084,6 +1232,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.alertRules.update()`. */
   updateAlertRule(ruleId: AlertRuleId, input: UpdateAlertRuleInput, options?: RequestOptions) {
     return this.request<AlertRule>("PATCH", `/alert-rules/${encodedPathSegment(ruleId)}`, {
       ...options,
@@ -1091,6 +1240,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.alertRules.delete()`. */
   deleteAlertRule(ruleId: AlertRuleId, options?: RequestOptions) {
     return this.request<DeleteAlertRuleResponse>(
       "DELETE",
@@ -1099,6 +1249,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.alerts.list()`. */
   listTriggeredAlerts(
     projectId: ProjectId,
     options?: PaginationOptions,
@@ -1119,6 +1270,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.alerts.iterate()`. */
   iterateTriggeredAlerts(
     projectId: ProjectId,
     options: PaginationOptions = {},
@@ -1130,6 +1282,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.alerts.mute()`. */
   muteTriggeredAlert(projectId: ProjectId, alertId: AlertId, options?: RequestOptions) {
     return this.request<TriggeredAlertMuteResult>(
       "POST",
@@ -1138,6 +1291,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.alerts.markAllRead({ projectId })`. */
   markProjectAlertsRead(projectId: ProjectId, options?: RequestOptions) {
     return this.request<TriggeredAlertsReadResult>(
       "POST",
@@ -1146,6 +1300,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.members.list()`. */
   listTeamMembers(
     projectId: ProjectId,
     options?: PaginationOptions,
@@ -1166,6 +1321,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.members.iterate()`. */
   iterateTeamMembers(
     projectId: ProjectId,
     options: PaginationOptions = {},
@@ -1177,6 +1333,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.invites.list()`. */
   listTeamInvites(
     projectId: ProjectId,
     options?: PaginationOptions,
@@ -1197,6 +1354,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.invites.iterate()`. */
   iterateTeamInvites(
     projectId: ProjectId,
     options: PaginationOptions = {},
@@ -1208,6 +1366,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.invites.create()`. */
   createTeamInvite(projectId: ProjectId, input: CreateTeamInviteInput, options?: RequestOptions) {
     return this.request<CreatedTeamInvite>(
       "POST",
@@ -1216,6 +1375,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.invites.revoke({ id, projectId })`. */
   revokeTeamInvite(projectId: ProjectId, inviteId: InviteId, options?: RequestOptions) {
     return this.request<RevokedTeamInvite>(
       "DELETE",
@@ -1224,6 +1384,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.invites.revoke(id)`. */
   revokeTeamInviteById(inviteId: InviteId, options?: RequestOptions) {
     return this.request<RevokedTeamInvite>(
       "DELETE",
@@ -1232,6 +1393,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.invites.resend()`. */
   resendTeamInvite(projectId: ProjectId, inviteId: InviteId, options?: RequestOptions) {
     return this.request<TeamInviteResendResult>(
       "POST",
@@ -1240,6 +1402,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.members.updateRole()`. */
   updateTeamMemberRole(
     projectId: ProjectId,
     memberId: MembershipId,
@@ -1253,6 +1416,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.team.members.remove()`. */
   removeTeamMember(projectId: ProjectId, memberId: MembershipId, options?: RequestOptions) {
     return this.request<TeamMemberMutationResult>(
       "DELETE",
@@ -1261,6 +1425,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.providers.list()`. */
   listProviders(
     projectId: ProjectId,
     options?: PaginationOptions,
@@ -1281,6 +1446,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.providers.iterate()`. */
   iterateProviders(
     projectId: ProjectId,
     options: PaginationOptions = {},
@@ -1292,6 +1458,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.providers.connect()`. */
   connectProvider(
     projectId: ProjectId,
     providerId: string,
@@ -1307,6 +1474,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.providers.test()`. */
   testProviderConnection(
     projectId: ProjectId,
     providerId: string,
@@ -1320,6 +1488,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.providers.updateSettings()`. */
   updateProviderSettings(
     projectId: ProjectId,
     providerId: string,
@@ -1333,6 +1502,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.providers.setEnabled()`. */
   setProviderEnabled(
     projectId: ProjectId,
     providerId: string,
@@ -1342,14 +1512,17 @@ export class BisibilityClient {
     return this.updateProviderSettings(projectId, providerId, { enabled }, options);
   }
 
+  /** @deprecated Use `client.providers.setEnabled(projectId, providerId, true)`. */
   enableProvider(projectId: ProjectId, providerId: string, options?: RequestOptions) {
     return this.setProviderEnabled(projectId, providerId, true, options);
   }
 
+  /** @deprecated Use `client.providers.setEnabled(projectId, providerId, false)`. */
   disableProvider(projectId: ProjectId, providerId: string, options?: RequestOptions) {
     return this.setProviderEnabled(projectId, providerId, false, options);
   }
 
+  /** @deprecated Use `client.providers.setPriority()`. */
   setProviderPriority(
     projectId: ProjectId,
     providerId: string,
@@ -1359,6 +1532,7 @@ export class BisibilityClient {
     return this.updateProviderSettings(projectId, providerId, { priority }, options);
   }
 
+  /** @deprecated Use `client.providers.setPrimary()`. */
   setPrimaryProvider(
     projectId: ProjectId,
     providerId: string,
@@ -1368,6 +1542,7 @@ export class BisibilityClient {
     return this.updateProviderSettings(projectId, providerId, { primary }, options);
   }
 
+  /** @deprecated Use `client.providers.disconnect()`. */
   disconnectProvider(projectId: ProjectId, providerId: string, options?: RequestOptions) {
     return this.request<ProviderDisconnectResponse>(
       "DELETE",
@@ -1376,6 +1551,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.savedViews.list()`. */
   listSavedViews(
     projectId: ProjectId,
     options?: ListSavedViewsOptions,
@@ -1397,6 +1573,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.savedViews.iterate()`. */
   iterateSavedViews(
     projectId: ProjectId,
     options: ListSavedViewsOptions = {},
@@ -1408,6 +1585,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.savedViews.create()`. */
   createSavedView(projectId: ProjectId, input: CreateSavedViewInput, options?: RequestOptions) {
     return this.request<SavedView>(
       "POST",
@@ -1416,6 +1594,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.savedViews.delete({ id, projectId })`. */
   deleteSavedView(projectId: ProjectId, viewId: SavedViewId, options?: RequestOptions) {
     return this.request<DeleteSavedViewResponse>(
       "DELETE",
@@ -1424,6 +1603,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.savedViews.delete(id)`. */
   deleteSavedViewById(viewId: SavedViewId, options?: RequestOptions) {
     return this.request<DeleteSavedViewResponse>(
       "DELETE",
@@ -1432,6 +1612,70 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.keywords.saved.list()` instead. */
+  listSavedKeywords(
+    projectId: ProjectId,
+    options?: PaginationOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    const pagination = options ?? {};
+
+    return this.request<ListResponse<SavedKeyword>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/saved-keywords`,
+      {
+        ...requestOptions,
+        query: {
+          ...(pagination.cursor === undefined ? {} : { cursor: pagination.cursor }),
+          ...(pagination.limit === undefined ? {} : { limit: pagination.limit }),
+        },
+      },
+    );
+  }
+
+  /** @deprecated Use `client.keywords.saved.iterate()` instead. */
+  iterateSavedKeywords(
+    projectId: ProjectId,
+    options: PaginationOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination(
+      (pageOptions) => this.listSavedKeywords(projectId, pageOptions, requestOptions),
+      options,
+    );
+  }
+
+  /**
+   * Saves keywords for later without putting them under rank tracking.
+   * Keywords already tracked or already saved come back as `skipped`.
+   * @deprecated Use `client.keywords.saved.create()` instead.
+   */
+  createSavedKeywords(
+    projectId: ProjectId,
+    input: CreateSavedKeywordsInput,
+    options?: RequestOptions,
+  ) {
+    return this.request<CreateSavedKeywordsResponse>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/saved-keywords`,
+      { ...options, body: input },
+    );
+  }
+
+  /** @deprecated Use `client.keywords.saved.delete()` instead. */
+  deleteSavedKeyword(
+    projectId: ProjectId,
+    savedKeywordId: SavedKeywordId,
+    options?: RequestOptions,
+  ) {
+    return this.request<DeleteSavedKeywordResponse>(
+      "DELETE",
+      `/projects/${encodedPathSegment(projectId)}/saved-keywords/${encodedPathSegment(savedKeywordId)}`,
+      options,
+    );
+  }
+
+  /** @deprecated Use `client.competitors.list()`. */
   listCompetitors(
     projectId: ProjectId,
     options?: PaginationOptions,
@@ -1452,6 +1696,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.competitors.iterate()`. */
   iterateCompetitors(
     projectId: ProjectId,
     options: PaginationOptions = {},
@@ -1463,6 +1708,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.competitors.add()`. */
   addCompetitor(projectId: ProjectId, input: AddCompetitorInput, options?: RequestOptions) {
     return this.request<Competitor>(
       "POST",
@@ -1471,6 +1717,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.competitors.remove({ id, projectId })`. */
   removeCompetitor(projectId: ProjectId, competitorId: CompetitorId, options?: RequestOptions) {
     return this.request<RemoveCompetitorResponse>(
       "DELETE",
@@ -1479,6 +1726,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.competitors.remove(id)`. */
   removeCompetitorById(competitorId: CompetitorId, options?: RequestOptions) {
     return this.request<RemoveCompetitorResponse>(
       "DELETE",
@@ -1487,6 +1735,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.notificationSettings.get()`. */
   getNotificationPreferences(projectId: ProjectId, options?: RequestOptions) {
     return this.request<NotificationPreferences>(
       "GET",
@@ -1495,6 +1744,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.notificationSettings.update()`. */
   updateNotificationPreferences(
     projectId: ProjectId,
     input: UpdateNotificationPreferencesInput,
@@ -1507,6 +1757,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.imports.tokens.list()`. */
   listMigrationTokens(
     projectId: ProjectId,
     options?: PaginationOptions,
@@ -1527,6 +1778,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.imports.tokens.iterate()`. */
   iterateMigrationTokens(
     projectId: ProjectId,
     options: PaginationOptions = {},
@@ -1538,6 +1790,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.imports.tokens.create()`. */
   mintMigrationToken(
     projectId: ProjectId,
     input: MintMigrationTokenInput = {},
@@ -1550,6 +1803,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.imports.tokens.revoke({ id, projectId })`. */
   revokeMigrationToken(projectId: ProjectId, tokenId: MigrationTokenId, options?: RequestOptions) {
     return this.request<RevokedMigrationToken>(
       "DELETE",
@@ -1558,6 +1812,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.imports.tokens.revoke(id)`. */
   revokeMigrationTokenById(tokenId: MigrationTokenId, options?: RequestOptions) {
     return this.request<RevokedMigrationToken>(
       "DELETE",
@@ -1566,6 +1821,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.imports.compatibility.get()`. */
   getCloudImportCompatibility(options?: RequestOptions) {
     return this.request<CloudImportCompatibility>("GET", "/cloud/import/compatibility", {
       ...options,
@@ -1573,6 +1829,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.imports.runFromExport()`. */
   importCloudExport(input: CloudImportPackage, options?: RequestOptions) {
     return this.request<CloudImportFinalizeResponse>("POST", "/cloud/import", {
       ...options,
@@ -1580,6 +1837,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.imports.sessions.create()`. */
   createCloudImportSession(input: CloudImportSessionCreate, options?: RequestOptions) {
     return this.request<CloudImportSessionCreateResponse>("POST", "/cloud/import/sessions", {
       ...options,
@@ -1587,6 +1845,7 @@ export class BisibilityClient {
     });
   }
 
+  /** @deprecated Use `client.imports.sessions.uploadChunk()`. */
   uploadCloudImportChunk(
     sessionId: CloudImportJobId,
     index: number,
@@ -1606,6 +1865,7 @@ export class BisibilityClient {
     );
   }
 
+  /** @deprecated Use `client.imports.sessions.finalize()`. */
   finalizeCloudImportSession(sessionId: CloudImportJobId, options?: RequestOptions) {
     return this.request<CloudImportFinalizeResponse>(
       "POST",
@@ -1634,6 +1894,82 @@ export class BisibilityClient {
     }
 
     return absolute ? url.toString() : `${url.pathname}${url.search}`;
+  }
+
+  private assertApiVersionCompatible(response: CapabilitiesResponse) {
+    const advertised = (response as { apiVersions?: unknown }).apiVersions;
+    if (advertised === undefined) {
+      return;
+    }
+    if (!Array.isArray(advertised) || advertised.some((version) => typeof version !== "string")) {
+      throw new BisibilityResponseError(
+        "Bisibility API returned invalid API version capabilities.",
+        {
+          body: JSON.stringify(response),
+          cause: undefined,
+          method: "GET",
+          status: 200,
+          url: this.buildUrl("/capabilities"),
+        },
+      );
+    }
+    if (advertised.includes(BISIBILITY_API_VERSION)) {
+      return;
+    }
+
+    const detail = `The declared API version ${BISIBILITY_API_VERSION} is not served by this server.`;
+    const problem: ProblemDetails = {
+      detail,
+      errors: {
+        apiVersions: advertised,
+        declaredApiVersion: BISIBILITY_API_VERSION,
+      },
+      status: 409,
+      title: "Unsupported API version",
+      type: UNSUPPORTED_API_VERSION_PROBLEM_TYPE,
+    };
+    throw new BisibilityApiVersionError(detail, {
+      body: JSON.stringify(problem),
+      declaredApiVersion: BISIBILITY_API_VERSION,
+      headers: new Headers(),
+      method: "GET",
+      problem,
+      serverApiVersions: advertised,
+      status: 409,
+      url: this.buildUrl("/capabilities"),
+    });
+  }
+
+  private ensureApiVersionPreflight(
+    signal: AbortSignal | undefined,
+    timeout: number | null | undefined,
+  ) {
+    if (this.#apiVersionPreflight === undefined) {
+      const options: InternalRequestOptions = {
+        auth: false,
+        skipApiVersionPreflight: true,
+      };
+      if (signal !== undefined) {
+        options.signal = signal;
+      }
+      if (timeout !== undefined) {
+        options.timeout = timeout;
+      }
+      const pending = this.request<CapabilitiesResponse>("GET", "/capabilities", options).then(
+        (response) => {
+          this.assertApiVersionCompatible(response);
+        },
+      );
+      const cached = pending.catch((error: unknown) => {
+        if (!(error instanceof BisibilityApiVersionError) && this.#apiVersionPreflight === cached) {
+          this.#apiVersionPreflight = undefined;
+        }
+        throw error;
+      });
+      this.#apiVersionPreflight = cached;
+    }
+
+    return this.#apiVersionPreflight;
   }
 
   private async request<T>(method: string, path: string, options: InternalRequestOptions = {}) {
@@ -1675,7 +2011,6 @@ export class BisibilityClient {
     if (options.auth !== false && !this.#apiKey) {
       throw new BisibilityConfigurationError("apiKey is required for this Bisibility API method.");
     }
-
     const headers = mergeHeaders(this.#defaultHeaders, options.headers);
     if (this.#projectId !== undefined && !headers.has("X-Bisibility-Project")) {
       headers.set("X-Bisibility-Project", this.#projectId);
@@ -1686,6 +2021,9 @@ export class BisibilityClient {
         "X-Bisibility-Project must match prj_[a-z][a-z0-9]{23}.",
       );
     }
+    if (!options.skipApiVersionPreflight) {
+      await this.ensureApiVersionPreflight(options.signal, options.timeout);
+    }
     if (options.auth !== false) {
       headers.set("Authorization", `Bearer ${this.#apiKey}`);
     }
@@ -1693,6 +2031,7 @@ export class BisibilityClient {
       headers.set("Idempotency-Key", options.idempotencyKey);
     }
     headers.set("X-Bisibility-Client", CLIENT_ID);
+    headers.set(BISIBILITY_API_VERSION_HEADER, BISIBILITY_API_VERSION);
     if (!headers.has("User-Agent")) {
       try {
         headers.set("User-Agent", CLIENT_ID);
@@ -1743,7 +2082,7 @@ export class BisibilityClient {
         continue;
       }
 
-      if (!response.ok) {
+      if (!response.ok && !options.acceptedStatuses?.includes(response.status)) {
         const error = await this.errorFromResponse(response, method, url);
         if (
           retryable &&
@@ -1834,6 +2173,20 @@ export class BisibilityClient {
     const problem = problemFromJson(parsed);
     const message =
       problem?.detail || body || `Bisibility API request failed with status ${response.status}.`;
+
+    if (response.status === 409 && isUnsupportedApiVersionProblem(problem)) {
+      const details = apiVersionErrorDetails(problem);
+      return new BisibilityApiVersionError(message, {
+        body,
+        declaredApiVersion: details.declaredApiVersion,
+        headers,
+        method,
+        problem,
+        serverApiVersions: details.serverApiVersions,
+        status: response.status,
+        url,
+      });
+    }
 
     return new BisibilityApiError(message, {
       body,
