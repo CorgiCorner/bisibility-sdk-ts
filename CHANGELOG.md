@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.7.3 - 2026-08-04
+
+- Updated the public development dependency resolution to fix the high-severity
+  `brace-expansion` denial-of-service advisory.
+
 ## 0.7.2 - 2026-08-02
 
 - Added a separate `accessToken` configuration option for OAuth bearer tokens without applying
