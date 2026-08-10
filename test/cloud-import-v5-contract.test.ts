@@ -289,7 +289,7 @@ describe("cloud import v5 contract", () => {
     ).not.toThrow();
   });
 
-  it("rejects v4, raw IDs, legacy aliases, missing IDs, and non-canonical sections", () => {
+  it("rejects v4, malformed IDs, deprecated aliases, missing IDs, and non-canonical sections", () => {
     for (const body of [
       { ...exactPackage, version: 4 },
       { ...exactPackage, project_id: "cmmf4qedl0000ym5nmzq3yy7p" },

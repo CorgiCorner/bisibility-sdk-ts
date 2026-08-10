@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.8.0 - 2026-08-10
+
+- Updated public ID documentation to describe the current typed identifier format without retired
+  migration-version terminology.
+- Preserved deprecated provider-primary inputs by promoting connections with priority 0;
+  `primary: false` remains a no-op.
+- Updated public development dependency resolution to address the high-severity `nanoid` advisory.
+
 ## 0.7.3 - 2026-08-04
 
 - Updated the public development dependency resolution to fix the high-severity

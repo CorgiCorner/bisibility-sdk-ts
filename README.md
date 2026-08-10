@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> **Status:** Published on npm as v0.6.1.
+> **Status:** Published on npm as v0.8.0.
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -143,14 +143,14 @@ original request continues normally.
 
 ## Public resource IDs
 
-Every resource identifier accepted or returned by the SDK uses public ID v3. The
-format is a lowercase resource prefix, an underscore, and a 24-character CUID2
+Every resource identifier accepted or returned by the SDK uses the current typed public ID format.
+The format is a lowercase resource prefix, an underscore, and a 24-character
 suffix: `prefix_[a-z][a-z0-9]{23}`. For example, a project ID is
 `prj_a1b2c3d4e5f6g7h8j9k0m2n3` and a keyword ID is
 `kw_b2c3d4e5f6g7h8j9k0m2n3p4`.
 
-The SDK rejects raw database IDs, legacy IDs, mixed-case values, and a valid ID
-with the wrong resource prefix before sending a request. `PUBLIC_ID_PREFIXES`,
+The SDK rejects malformed IDs, mixed-case values, and a valid ID with the wrong resource prefix
+before sending a request. `PUBLIC_ID_PREFIXES`,
 `isPublicIdOfType`, and resource-specific types such as `ProjectId`, `KeywordId`,
 and `WebhookId` are exported for callers that build typed integrations.
 
@@ -186,6 +186,13 @@ compatibility delegates until 1.0.
 | `savedViews` | `list`, `iterate`, `create`, `delete` |
 | `competitors` | `list`, `iterate`, `add`, `remove` |
 | `imports` | `runFromExport`, plus `compatibility.*`, `tokens.*`, `sessions.*` |
+
+### Provider priorities
+
+Provider order uses ascending priority. The deprecated `primary` input and `setPrimary` aliases
+remain compatible: `true` promotes the provider with `priority: 0`, while `false` leaves it
+unchanged. On `connectProvider`, promotion is a follow-up PATCH after the connection is saved; if
+that PATCH fails, the connection remains saved and the method throws the PATCH error.
 
 `apiKeys.list()` and `apiKeys.create()` use the current project selected by authentication. Pass
 `{ projectId }` to select the explicit project route. A personal access token spanning multiple

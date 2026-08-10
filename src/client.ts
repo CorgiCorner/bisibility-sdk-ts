@@ -171,6 +171,7 @@ interface InternalRequestOptions extends RequestOptions {
   parseAs?: "json" | "text";
   query?: QueryParams;
   skipApiVersionPreflight?: boolean;
+  suppressIdempotencyKey?: boolean;
 }
 
 function isAbsoluteUrl(value: string) {
@@ -204,6 +205,21 @@ function queryValue(value: QueryScalar) {
 
 function bodyOrUndefined(input: unknown) {
   return input && typeof input === "object" && Object.keys(input).length > 0 ? input : undefined;
+}
+
+function providerSettingsPayload(input: ProviderSettingsInput) {
+  const { primary, ...settings } = input;
+  return primary === true ? { ...settings, priority: 0 } : settings;
+}
+
+function connectProviderPayload(input: ConnectProviderInput) {
+  const { primary, priority, ...body } = input;
+  return { body, priority: primary === true ? 0 : priority };
+}
+
+function withoutIdempotencyKey(options: RequestOptions | undefined) {
+  const { idempotencyKey: _idempotencyKey, ...requestOptions } = options ?? {};
+  return { ...requestOptions, suppressIdempotencyKey: true };
 }
 
 function stringOrUndefined(value: unknown) {
@@ -1464,18 +1480,29 @@ export class BisibilityClient {
   }
 
   /** @deprecated Use `client.providers.connect()`. */
-  connectProvider(
+  async connectProvider(
     projectId: ProjectId,
     providerId: string,
     input: ConnectProviderInput = {},
     options?: RequestOptions,
   ) {
-    return this.request<ProviderConnection>(
+    const payload = connectProviderPayload(input);
+    const connection = await this.request<ProviderConnection>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/providers/${encodedPathSegment(
         providerId,
       )}/connect`,
-      { ...options, body: bodyOrUndefined(input) },
+      { ...options, body: bodyOrUndefined(payload.body) },
+    );
+    if (payload.priority === undefined) return connection;
+
+    // The server derives priority while connecting. Preserve legacy priority and primary
+    // inputs with a follow-up PATCH. If that PATCH fails, leave the connection intact.
+    return this.setProviderPriority(
+      projectId,
+      providerId,
+      payload.priority,
+      withoutIdempotencyKey(options),
     );
   }
 
@@ -1503,7 +1530,7 @@ export class BisibilityClient {
     return this.request<ProviderConnection>(
       "PATCH",
       `/projects/${encodedPathSegment(projectId)}/providers/${encodedPathSegment(providerId)}`,
-      { ...options, body: input },
+      { ...options, body: providerSettingsPayload(input) },
     );
   }
 
@@ -2034,7 +2061,9 @@ export class BisibilityClient {
     if (options.auth !== false) {
       headers.set("Authorization", `Bearer ${this.#authorizationToken}`);
     }
-    if (options.idempotencyKey) {
+    if (options.suppressIdempotencyKey) {
+      headers.delete("Idempotency-Key");
+    } else if (options.idempotencyKey) {
       headers.set("Idempotency-Key", options.idempotencyKey);
     }
     headers.set("X-Bisibility-Client", CLIENT_ID);

@@ -1009,6 +1009,7 @@ export interface ConnectProviderInput {
   credentials?: ProviderCredentialsInput;
   enabled?: boolean;
   login?: string;
+  /** @deprecated Use `priority: 0` to promote a provider after connecting. */
   primary?: boolean;
   priority?: number;
   secret?: string;
@@ -1022,6 +1023,7 @@ export interface TestProviderConnectionInput {
 
 export interface ProviderSettingsInput {
   enabled?: boolean;
+  /** @deprecated Use `priority: 0` to promote a provider. */
   primary?: boolean;
   priority?: number;
 }

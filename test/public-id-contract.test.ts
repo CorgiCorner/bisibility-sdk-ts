@@ -35,7 +35,7 @@ const ids = Object.fromEntries(PUBLIC_ID_PREFIXES.map((prefix) => [prefix, id(pr
   string
 >;
 
-describe("public ID v3 registry", () => {
+describe("public ID registry", () => {
   it("defines the complete canonical resource registry", () => {
     expect(PUBLIC_ID_PREFIXES).toEqual([
       "al",
@@ -99,13 +99,13 @@ describe("public ID v3 registry", () => {
     "skw",
     "view",
     "webhook",
-  ])("rejects the retired %s prefix", (prefix) => {
+  ])("rejects the non-canonical %s prefix", (prefix) => {
     expect(isPublicId(`${prefix}_${suffix}`)).toBe(false);
   });
 });
 
 describe("public ID request contract", () => {
-  it("accepts every typed path selector and rejects raw or mismatched values", () => {
+  it("accepts every typed path selector and rejects malformed or mismatched values", () => {
     const validPaths: Array<[string, string]> = [
       ["project", `/projects/${ids.prj}`],
       ["keyword", `/keywords/${ids.kw}`],

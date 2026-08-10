@@ -2426,6 +2426,7 @@ describe("BisibilityClient protected resources", () => {
     const testResult: ProviderTestResult = { balance: 15.25, message: "Connected", ok: true };
     fetchMock.mockResolvedValueOnce(jsonResponse(list([provider()], "provider_cursor")));
     fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }));
+    fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })));
     fetchMock.mockResolvedValueOnce(jsonResponse(testResult));
     fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection({ enabled: false })));
     fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection({ enabled: true })));
@@ -2519,28 +2520,145 @@ describe("BisibilityClient protected resources", () => {
     expectJsonBody(fetchMock.mock.calls[1]?.[1], {
       cost_per_check: 0.01,
       credentials: { api_key: "secret" },
-      primary: true,
-      priority: 0,
     });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/serpapi/test",
-    );
-    expectJsonBody(fetchMock.mock.calls[2]?.[1], { credentials: { api_key: "secret" } });
-    expect(fetchMock.mock.calls[3]?.[0]).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/serpapi",
     );
-    expect(fetchMock.mock.calls[3]?.[1]?.method).toBe("PATCH");
-    expectJsonBody(fetchMock.mock.calls[3]?.[1], { enabled: false, priority: 25 });
-    expectJsonBody(fetchMock.mock.calls[4]?.[1], { enabled: true });
+    expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("PATCH");
+    expectJsonBody(fetchMock.mock.calls[2]?.[1], { priority: 0 });
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/serpapi/test",
+    );
+    expectJsonBody(fetchMock.mock.calls[3]?.[1], { credentials: { api_key: "secret" } });
+    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/serpapi",
+    );
+    expect(fetchMock.mock.calls[4]?.[1]?.method).toBe("PATCH");
+    expectJsonBody(fetchMock.mock.calls[4]?.[1], { enabled: false, priority: 25 });
     expectJsonBody(fetchMock.mock.calls[5]?.[1], { enabled: true });
-    expectJsonBody(fetchMock.mock.calls[6]?.[1], { enabled: false });
-    expectJsonBody(fetchMock.mock.calls[7]?.[1], { priority: 20 });
-    expectJsonBody(fetchMock.mock.calls[8]?.[1], { primary: true });
-    expect(fetchMock.mock.calls[9]?.[1]?.method).toBe("DELETE");
-    expect(fetchMock.mock.calls[10]?.[1]?.body).toBeUndefined();
-    expect(new Headers(fetchMock.mock.calls[10]?.[1]?.headers).has("Content-Type")).toBe(false);
+    expectJsonBody(fetchMock.mock.calls[6]?.[1], { enabled: true });
+    expectJsonBody(fetchMock.mock.calls[7]?.[1], { enabled: false });
+    expectJsonBody(fetchMock.mock.calls[8]?.[1], { priority: 20 });
+    expectJsonBody(fetchMock.mock.calls[9]?.[1], { priority: 0 });
+    expect(fetchMock.mock.calls[10]?.[1]?.method).toBe("DELETE");
     expect(fetchMock.mock.calls[11]?.[1]?.body).toBeUndefined();
     expect(new Headers(fetchMock.mock.calls[11]?.[1]?.headers).has("Content-Type")).toBe(false);
+    expect(fetchMock.mock.calls[12]?.[1]?.body).toBeUndefined();
+    expect(new Headers(fetchMock.mock.calls[12]?.[1]?.headers).has("Content-Type")).toBe(false);
+  });
+
+  it("translates legacy provider priority inputs to the priority-only server contract", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })))
+      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 25 })))
+      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })))
+      .mockResolvedValueOnce(jsonResponse(providerConnection()))
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })))
+      .mockResolvedValueOnce(jsonResponse(providerConnection()));
+
+    await client.connectProvider(
+      "prj_a00000000000000000000000",
+      "serpapi",
+      { credentials: { api_key: "secret" }, primary: true, priority: 25 },
+      { idempotencyKey: "connect_1" },
+    );
+    await client.connectProvider("prj_a00000000000000000000000", "serpapi", { priority: 25 });
+    await client.connectProvider("prj_a00000000000000000000000", "serpapi", { primary: false });
+    await client.updateProviderSettings("prj_a00000000000000000000000", "serpapi", {
+      primary: true,
+    });
+    await client.updateProviderSettings("prj_a00000000000000000000000", "serpapi", {
+      primary: false,
+    });
+    await client.setPrimaryProvider("prj_a00000000000000000000000", "serpapi");
+    await client.setPrimaryProvider("prj_a00000000000000000000000", "serpapi", false);
+
+    expect(fetchMock.mock.calls).toHaveLength(9);
+    expectJsonBody(fetchMock.mock.calls[0]?.[1], { credentials: { api_key: "secret" } });
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Idempotency-Key")).toBe(
+      "connect_1",
+    );
+    expectJsonBody(fetchMock.mock.calls[1]?.[1], { priority: 0 });
+    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).has("Idempotency-Key")).toBe(false);
+    expect(fetchMock.mock.calls[2]?.[1]?.body).toBeUndefined();
+    expectJsonBody(fetchMock.mock.calls[3]?.[1], { priority: 25 });
+    expect(fetchMock.mock.calls[4]?.[1]?.body).toBeUndefined();
+    expectJsonBody(fetchMock.mock.calls[5]?.[1], { priority: 0 });
+    expectJsonBody(fetchMock.mock.calls[6]?.[1], {});
+    expectJsonBody(fetchMock.mock.calls[7]?.[1], { priority: 0 });
+    expectJsonBody(fetchMock.mock.calls[8]?.[1], {});
+  });
+
+  it("does not roll back a connected provider when compatibility promotion fails", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
+      .mockResolvedValueOnce(jsonResponse({ detail: "Priority update failed." }, { status: 500 }));
+
+    await expect(
+      client.connectProvider("prj_a00000000000000000000000", "serpapi", { primary: true }),
+    ).rejects.toBeInstanceOf(BisibilityApiError);
+
+    expect(fetchMock.mock.calls).toHaveLength(2);
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("PATCH");
+    expectJsonBody(fetchMock.mock.calls[1]?.[1], { priority: 0 });
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+  });
+
+  it("suppresses every idempotency source from a provider priority promotion", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })))
+      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })));
+    const withDefaultIdempotencyHeader = createClient(fetchMock, {
+      headers: { "idempotency-key": "default-key", "X-Trace-Default": "default-trace" },
+    });
+    const withRequestIdempotencyHeader = createClient(fetchMock, {
+      headers: { "X-Trace-Default": "default-trace" },
+    });
+
+    await withDefaultIdempotencyHeader.connectProvider("prj_a00000000000000000000000", "serpapi", {
+      primary: true,
+    });
+
+    await withRequestIdempotencyHeader.connectProvider(
+      "prj_a00000000000000000000000",
+      "serpapi",
+      { primary: true },
+      {
+        headers: { "IDEMPOTENCY-Key": "request-key", "X-Trace-Request": "request-trace" },
+        idempotencyKey: "option-key",
+      },
+    );
+
+    const defaultPostHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    const defaultPatchHeaders = new Headers(fetchMock.mock.calls[1]?.[1]?.headers);
+    const requestPostHeaders = new Headers(fetchMock.mock.calls[2]?.[1]?.headers);
+    const requestPatchHeaders = new Headers(fetchMock.mock.calls[3]?.[1]?.headers);
+    expect(defaultPostHeaders.get("Idempotency-Key")).toBe("default-key");
+    expect(defaultPostHeaders.get("X-Trace-Default")).toBe("default-trace");
+    expect(defaultPatchHeaders.has("Idempotency-Key")).toBe(false);
+    expect(defaultPatchHeaders.get("X-Trace-Default")).toBe("default-trace");
+    expect(requestPostHeaders.get("Idempotency-Key")).toBe("option-key");
+    expect(requestPostHeaders.get("X-Trace-Request")).toBe("request-trace");
+    expect(requestPatchHeaders.has("Idempotency-Key")).toBe(false);
+    expect(requestPatchHeaders.get("X-Trace-Default")).toBe("default-trace");
+    expect(requestPatchHeaders.get("X-Trace-Request")).toBe("request-trace");
+  });
+
+  it("does not promote a provider when the connect request fails", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "Connect failed." }, { status: 500 }));
+
+    await expect(
+      client.connectProvider("prj_a00000000000000000000000", "serpapi", { primary: true }),
+    ).rejects.toBeInstanceOf(BisibilityApiError);
+
+    expect(fetchMock.mock.calls).toHaveLength(1);
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
   });
 
   it("connects and tests a plausible provider with endpoint credentials", async () => {
@@ -2565,7 +2683,7 @@ describe("BisibilityClient protected resources", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/plausible/connect",
     );
-    expectJsonBody(fetchMock.mock.calls[0]?.[1], { credentials, primary: false });
+    expectJsonBody(fetchMock.mock.calls[0]?.[1], { credentials });
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/plausible/test",
     );

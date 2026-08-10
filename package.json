@@ -1,6 +1,6 @@
 {
   "name": "@bisibility/sdk",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "description": "TypeScript client for the Bisibility API - SEO rank tracking, keywords, and ranking history.",
   "type": "module",
   "license": "Apache-2.0",
@@ -74,6 +74,7 @@
     "vitest": "^3.2.4"
   },
   "overrides": {
-    "minimatch": "^10.2.6"
+    "minimatch": "^10.2.6",
+    "nanoid": "^3.3.18"
   }
 }
