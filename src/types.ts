@@ -605,6 +605,217 @@ export interface LoadMoreBacklinkRowsOptions {
   targetScope: "site" | "page";
 }
 
+export type DomainOverviewScope = "root" | "subdomain";
+
+export type DomainOverviewState = "no_data" | "ok" | "partial";
+
+export type DomainOverviewLookupFailureReason =
+  | "budget_exhausted"
+  | "cost_limit_exceeded"
+  | "in_progress"
+  | "lookup_failed"
+  | "needs_reauth"
+  | "no_source"
+  | "rate_limited"
+  | "snapshot_expired"
+  | "unsupported_location";
+
+export interface DomainOverviewLookupFailure {
+  cost_cents: number;
+  ok: false;
+  reason: DomainOverviewLookupFailureReason;
+  reset_at?: number;
+}
+
+export type DomainOverviewProblemReason = DomainOverviewLookupFailureReason | "unsupported_target";
+
+export interface DomainOverviewProblemErrors {
+  cost_cents: number;
+  reason: DomainOverviewProblemReason;
+  reset_at?: number | null;
+}
+
+export interface DomainOverviewProblemDetails extends ProblemDetails {
+  errors: DomainOverviewProblemErrors;
+}
+
+export interface DomainOverviewMetrics {
+  count: number | null;
+  estimated_traffic_cost_cents: number | null;
+  etv: number | null;
+  is_down: number;
+  is_lost: number;
+  is_new: number;
+  is_up: number;
+  pos1: number;
+  pos11_20: number;
+  pos21_30: number;
+  pos2_3: number;
+  pos31_40: number;
+  pos41_50: number;
+  pos4_10: number;
+  pos51_60: number;
+  pos61_70: number;
+  pos71_80: number;
+  pos81_90: number;
+  pos91_100: number;
+}
+
+export interface DomainOverviewHistoricalRow {
+  metrics: DomainOverviewMetrics;
+  month: number;
+  year: number;
+}
+
+export type DomainOverviewKeywordIntent =
+  | "commercial"
+  | "informational"
+  | "navigational"
+  | "transactional";
+
+export interface DomainOverviewRankedKeyword {
+  cpc_cents: number | null;
+  difficulty: number | null;
+  estimated_traffic: number | null;
+  intent: DomainOverviewKeywordIntent | null;
+  keyword: string;
+  position: number | null;
+  rank_absolute: number | null;
+  rank_absolute_delta: number | null;
+  ranking_url: string | null;
+  search_volume: number | null;
+  serp_features: string[];
+}
+
+export interface DomainOverviewKeywordsData {
+  cost_cents: number;
+  rows: DomainOverviewRankedKeyword[];
+  total_count: number | null;
+}
+
+export interface DomainOverviewRelevantPage {
+  etv: number | null;
+  etv_delta_pct: number | null;
+  keyword_count: number | null;
+  path: string;
+  top_keyword: string | null;
+  top_keyword_position: number | null;
+}
+
+export interface DomainOverviewPagesData {
+  cost_cents: number;
+  rows: DomainOverviewRelevantPage[];
+  total_count: number;
+}
+
+export interface DomainOverviewModuleSuccess<T> {
+  cached: boolean;
+  cost_cents: number;
+  data: T;
+  fetched_at: string;
+  ok: true;
+}
+
+export type DomainOverviewModuleOutcome<T> =
+  | DomainOverviewModuleSuccess<T>
+  | DomainOverviewLookupFailure;
+
+export type DomainOverviewModuleData<T> = Omit<DomainOverviewModuleSuccess<T>, "ok">;
+
+interface DomainOverviewCommonOptions {
+  fresh?: boolean;
+  languageCode: string;
+  locationCode: number;
+  scopeOverride?: DomainOverviewScope;
+  target: string;
+}
+
+interface DomainOverviewAnalyzeCommonOptions extends DomainOverviewCommonOptions {
+  keywordLimit?: number;
+  pageLimit?: number;
+}
+
+export interface EstimateDomainOverviewOptions extends DomainOverviewAnalyzeCommonOptions {
+  estimateOnly: true;
+  maxCostCents?: number;
+}
+
+export interface LoadDomainOverviewReportOptions extends DomainOverviewAnalyzeCommonOptions {
+  estimateOnly?: false;
+  maxCostCents: number;
+}
+
+export type AnalyzeDomainOverviewOptions =
+  | EstimateDomainOverviewOptions
+  | LoadDomainOverviewReportOptions;
+
+export interface LoadDomainOverviewHistoryOptions extends DomainOverviewCommonOptions {
+  maxCostCents: number;
+}
+
+export interface LoadDomainOverviewPageOptions extends DomainOverviewCommonOptions {
+  limit: number;
+  maxCostCents: number;
+  offset: number;
+}
+
+export type LoadDomainOverviewKeywordsOptions = LoadDomainOverviewPageOptions;
+
+export type LoadDomainOverviewPagesOptions = LoadDomainOverviewPageOptions;
+
+export interface DomainOverviewEstimate {
+  cached: boolean;
+  estimate: true;
+  estimated_cost_cents: number;
+  fresh_estimated_cost_cents: number;
+  history_estimated_cost_cents: number;
+  history_mode: "lazy";
+  keyword_page_estimated_cost_cents: number;
+  language_code: string;
+  location_code: number;
+  page_page_estimated_cost_cents: number;
+  provider: string;
+  scope: DomainOverviewScope;
+  target: string;
+}
+
+export interface DomainOverviewReport {
+  cached: boolean;
+  cached_until: string;
+  cost_cents: number;
+  fetched_at: string;
+  history_mode: "lazy";
+  keywords: DomainOverviewModuleOutcome<DomainOverviewKeywordsData>;
+  language_code: string;
+  location_code: number;
+  overview: DomainOverviewMetrics | null;
+  pages: DomainOverviewModuleOutcome<DomainOverviewPagesData>;
+  previous_fetched_at: string | null;
+  previous_overview: DomainOverviewMetrics | null;
+  previous_source_snapshot_at: string | null;
+  provider: string;
+  scope: DomainOverviewScope;
+  source_snapshot_at: string | null;
+  state: DomainOverviewState;
+  target: string;
+}
+
+export type DomainOverviewAnalyzeResult = DomainOverviewEstimate | DomainOverviewReport;
+
+export type DomainOverviewAnalyzeResponse = DataResponse<DomainOverviewAnalyzeResult>;
+
+export type DomainOverviewHistoryResponse = DataResponse<
+  DomainOverviewModuleData<DomainOverviewHistoricalRow[]>
+>;
+
+export type DomainOverviewKeywordsResponse = DataResponse<
+  DomainOverviewModuleData<DomainOverviewKeywordsData>
+>;
+
+export type DomainOverviewPagesResponse = DataResponse<
+  DomainOverviewModuleData<DomainOverviewPagesData>
+>;
+
 export type KeywordResearchMode = "auto" | "related" | "suggestions" | "ideas";
 
 export type KeywordResearchResultLimit = 100 | 300 | 500;

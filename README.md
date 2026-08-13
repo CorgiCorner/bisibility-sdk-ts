@@ -174,6 +174,7 @@ compatibility delegates until 1.0.
 | `webhooks` | `list`, `iterate`, `create`, `update`, `delete` |
 | `keywords` | `list`, `iterate`, `add`, `get`, `update`, `setTargetUrl`, `delete`, `bulkUpdate`, `match`, `research`, plus `suggestions.list`, `metrics.get` |
 | `backlinks` | `analyze`, `extendSnapshot` |
+| `domainOverview` | `analyze`, `history`, `keywords`, `pages` |
 | `rankChecks` | `list`, `iterate`, `run`, `getResult`, plus `history.export`, `history.iterate` |
 | `sitemapMonitors` | `list`, `update` |
 | `signals` | `list`, `iterate`, `create` |
@@ -187,6 +188,27 @@ compatibility delegates until 1.0.
 | `competitors` | `list`, `iterate`, `add`, `remove` |
 | `imports` | `runFromExport`, plus `compatibility.*`, `tokens.*`, `sessions.*` |
 
+Domain Overview analysis accepts camelCase options and requires an explicit cost cap before any
+request that can spend provider budget. Start with an estimate, then pass the accepted cap to the
+paid request. Provider estimates and charges can be fractional cents, but `maxCostCents` is a whole
+nonnegative cent integer, so round the estimate up:
+
+```ts
+const estimate = await bisibility.domainOverview.analyze(project.id, {
+  estimateOnly: true,
+  languageCode: "en",
+  locationCode: 2840,
+  target: "example.com",
+});
+
+const report = await bisibility.domainOverview.analyze(project.id, {
+  languageCode: "en",
+  locationCode: 2840,
+  maxCostCents: Math.ceil(estimate.data.estimated_cost_cents),
+  target: "example.com",
+});
+```
+
 ### Provider priorities
 
 Provider order uses ascending priority. The deprecated `primary` input and `setPrimary` aliases
@@ -198,8 +220,9 @@ that PATCH fails, the connection remains saved and the method throws the PATCH e
 `{ projectId }` to select the explicit project route. A personal access token spanning multiple
 projects must pass `projectId` because the top-level route cannot select a project unambiguously.
 
-List methods return `{ data, meta }` with `meta.next_cursor`. Resource methods return the resource
-object directly, matching the Bisibility API response shape.
+List methods return `{ data, meta }` with `meta.next_cursor`. Most resource methods return the
+resource object directly. Domain Overview and Backlinks preserve the API `{ data }` envelope, so
+their results carry `result.data` with the resource payload.
 
 Every cursor-paginated list has an `iterate*` counterpart that preserves filters and yields items
 across all pages:

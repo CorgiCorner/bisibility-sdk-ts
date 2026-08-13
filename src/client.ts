@@ -21,6 +21,7 @@ import type {
   AlertRule,
   AlertRuleId,
   AnalyzeBacklinksOptions,
+  AnalyzeDomainOverviewOptions,
   ApiKey,
   ApiKeyId,
   BacklinksSnapshot,
@@ -58,6 +59,13 @@ import type {
   DeleteAlertRuleResponse,
   DeleteSavedKeywordResponse,
   DeleteSavedViewResponse,
+  DomainOverviewAnalyzeResponse,
+  DomainOverviewEstimate,
+  DomainOverviewHistoryResponse,
+  DomainOverviewKeywordsResponse,
+  DomainOverviewPagesResponse,
+  DomainOverviewReport,
+  EstimateDomainOverviewOptions,
   ExportRankHistoryCsvOptions,
   ExportRankHistoryJsonOptions,
   FetchLike,
@@ -83,6 +91,10 @@ import type {
   ListSignalsOptions,
   ListTrafficSnapshotsOptions,
   LivenessResponse,
+  LoadDomainOverviewHistoryOptions,
+  LoadDomainOverviewKeywordsOptions,
+  LoadDomainOverviewPagesOptions,
+  LoadDomainOverviewReportOptions,
   LoadMoreBacklinkRowsOptions,
   LocationSuggestionsResponse,
   Me,
@@ -414,6 +426,7 @@ export class BisibilityClient {
   declare readonly backlinks: ClientResourceNamespaces["backlinks"];
   readonly baseUrl: string;
   declare readonly competitors: ClientResourceNamespaces["competitors"];
+  declare readonly domainOverview: ClientResourceNamespaces["domainOverview"];
   declare readonly imports: ClientResourceNamespaces["imports"];
   declare readonly keywords: ClientResourceNamespaces["keywords"];
   declare readonly locations: ClientResourceNamespaces["locations"];
@@ -973,6 +986,131 @@ export class BisibilityClient {
           target_scope: options.targetScope,
           include_subdomains: options.includeSubdomains,
           limit: options.limit,
+        },
+      },
+    );
+  }
+
+  /**
+   * Analyze a domain, return a free estimate, or load a cached report. A non-estimate request can
+   * spend provider budget and therefore requires `maxCostCents`.
+   * @deprecated Use `client.domainOverview.analyze()`.
+   */
+  analyzeDomainOverview(
+    projectId: ProjectId,
+    options: EstimateDomainOverviewOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<DataResponse<DomainOverviewEstimate>>;
+  analyzeDomainOverview(
+    projectId: ProjectId,
+    options: LoadDomainOverviewReportOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<DataResponse<DomainOverviewReport>>;
+  analyzeDomainOverview(
+    projectId: ProjectId,
+    options: AnalyzeDomainOverviewOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<DomainOverviewAnalyzeResponse>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/domain-overview/analyze`,
+      {
+        ...requestOptions,
+        body: {
+          target: options.target,
+          location_code: options.locationCode,
+          language_code: options.languageCode,
+          scope_override: options.scopeOverride,
+          fresh: options.fresh,
+          max_cost_cents: options.maxCostCents,
+          estimate_only: options.estimateOnly,
+          keyword_limit: options.keywordLimit,
+          page_limit: options.pageLimit,
+        },
+      },
+    );
+  }
+
+  /**
+   * Load the historical index series for an unexpired Domain Overview snapshot. This operation
+   * can spend provider budget and requires `maxCostCents`.
+   * @deprecated Use `client.domainOverview.history()`.
+   */
+  loadDomainOverviewHistory(
+    projectId: ProjectId,
+    options: LoadDomainOverviewHistoryOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<DomainOverviewHistoryResponse>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/domain-overview/history`,
+      {
+        ...requestOptions,
+        body: {
+          target: options.target,
+          location_code: options.locationCode,
+          language_code: options.languageCode,
+          scope_override: options.scopeOverride,
+          fresh: options.fresh,
+          max_cost_cents: options.maxCostCents,
+        },
+      },
+    );
+  }
+
+  /**
+   * Load a page of ranked keywords for a domain. This operation can spend provider budget and
+   * requires `maxCostCents`.
+   * @deprecated Use `client.domainOverview.keywords()`.
+   */
+  loadDomainOverviewKeywords(
+    projectId: ProjectId,
+    options: LoadDomainOverviewKeywordsOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<DomainOverviewKeywordsResponse>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/domain-overview/keywords`,
+      {
+        ...requestOptions,
+        body: {
+          target: options.target,
+          location_code: options.locationCode,
+          language_code: options.languageCode,
+          scope_override: options.scopeOverride,
+          fresh: options.fresh,
+          max_cost_cents: options.maxCostCents,
+          limit: options.limit,
+          offset: options.offset,
+        },
+      },
+    );
+  }
+
+  /**
+   * Load a page of relevant pages for a domain. This operation can spend provider budget and
+   * requires `maxCostCents`.
+   * @deprecated Use `client.domainOverview.pages()`.
+   */
+  loadDomainOverviewPages(
+    projectId: ProjectId,
+    options: LoadDomainOverviewPagesOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<DomainOverviewPagesResponse>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/domain-overview/pages`,
+      {
+        ...requestOptions,
+        body: {
+          target: options.target,
+          location_code: options.locationCode,
+          language_code: options.languageCode,
+          scope_override: options.scopeOverride,
+          fresh: options.fresh,
+          max_cost_cents: options.maxCostCents,
+          limit: options.limit,
+          offset: options.offset,
         },
       },
     );

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-08-13
+
+- Added typed Domain Overview analysis, history, keyword, and page operations with explicit
+  provider cost caps and a `client.domainOverview` resource namespace.
+
 ## 0.8.0 - 2026-08-10
 
 - Updated public ID documentation to describe the current typed identifier format without retired

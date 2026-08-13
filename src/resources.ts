@@ -153,6 +153,12 @@ export interface ClientResourceNamespaces {
     analyze: BisibilityClient["analyzeBacklinks"];
     extendSnapshot: BisibilityClient["loadMoreBacklinkRows"];
   }>;
+  readonly domainOverview: Readonly<{
+    analyze: BisibilityClient["analyzeDomainOverview"];
+    history: BisibilityClient["loadDomainOverviewHistory"];
+    keywords: BisibilityClient["loadDomainOverviewKeywords"];
+    pages: BisibilityClient["loadDomainOverviewPages"];
+  }>;
   readonly rankChecks: Readonly<{
     list: BisibilityClient["listRankChecks"];
     iterate: BisibilityClient["iterateRankChecks"];
@@ -357,6 +363,12 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     analyze: delegate(client, "analyzeBacklinks"),
     extendSnapshot: delegate(client, "loadMoreBacklinkRows"),
   });
+  const domainOverview = Object.freeze({
+    analyze: delegate(client, "analyzeDomainOverview"),
+    history: delegate(client, "loadDomainOverviewHistory"),
+    keywords: delegate(client, "loadDomainOverviewKeywords"),
+    pages: delegate(client, "loadDomainOverviewPages"),
+  });
   const rankChecks = Object.freeze({
     list: delegate(client, "listRankChecks"),
     iterate: delegate(client, "iterateRankChecks"),
@@ -487,6 +499,7 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     webhooks,
     keywords,
     backlinks,
+    domainOverview,
     rankChecks,
     sitemapMonitors,
     signals,

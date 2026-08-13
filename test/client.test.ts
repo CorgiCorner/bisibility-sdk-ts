@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { inspect } from "node:util";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -22,6 +23,12 @@ import type {
   CreateKeywordsResponse,
   CreatedApiKey,
   CreatedTeamInvite,
+  DomainOverviewAnalyzeResponse,
+  DomainOverviewHistoryResponse,
+  DomainOverviewKeywordsResponse,
+  DomainOverviewMetrics,
+  DomainOverviewPagesResponse,
+  DomainOverviewProblemDetails,
   FlatCostEstimate,
   FlatProviderRate,
   HealthResponse,
@@ -180,6 +187,33 @@ function keywordMatchResponse(overrides: Partial<KeywordMatchResponse> = {}): Ke
       },
     ],
     meta: { truncated_texts: ["headless cms"] },
+    ...overrides,
+  };
+}
+
+function domainOverviewMetrics(
+  overrides: Partial<DomainOverviewMetrics> = {},
+): DomainOverviewMetrics {
+  return {
+    count: 1_200,
+    estimated_traffic_cost_cents: 12_345,
+    etv: 456.7,
+    is_down: 12,
+    is_lost: 3,
+    is_new: 7,
+    is_up: 20,
+    pos1: 10,
+    pos11_20: 40,
+    pos21_30: 50,
+    pos2_3: 20,
+    pos31_40: 60,
+    pos41_50: 70,
+    pos4_10: 30,
+    pos51_60: 80,
+    pos61_70: 90,
+    pos71_80: 100,
+    pos81_90: 110,
+    pos91_100: 120,
     ...overrides,
   };
 }
@@ -1572,6 +1606,316 @@ describe("BisibilityClient protected resources", () => {
       include_subdomains: true,
       limit: 300,
     });
+  });
+
+  it("analyzes Domain Overview with complete camelCase options and decodes a report", async () => {
+    const body: DomainOverviewAnalyzeResponse = {
+      data: {
+        cached: false,
+        cached_until: "2026-08-13T20:00:00.000Z",
+        cost_cents: 6,
+        fetched_at: "2026-08-13T08:00:00.000Z",
+        history_mode: "lazy",
+        keywords: {
+          cached: false,
+          cost_cents: 2,
+          data: {
+            cost_cents: 2,
+            rows: [
+              {
+                cpc_cents: 123,
+                difficulty: 42,
+                estimated_traffic: 23.5,
+                intent: "commercial",
+                keyword: "rank tracker",
+                position: 3,
+                rank_absolute: 5,
+                rank_absolute_delta: 2,
+                ranking_url: "https://example.com/rank-tracker",
+                search_volume: 1_000,
+                serp_features: ["organic", "ai_overview"],
+              },
+            ],
+            total_count: 250,
+          },
+          fetched_at: "2026-08-13T08:00:01.000Z",
+          ok: true,
+        },
+        language_code: "en",
+        location_code: 2840,
+        overview: domainOverviewMetrics(),
+        pages: {
+          cost_cents: 4,
+          ok: false,
+          reason: "rate_limited",
+          reset_at: 1_776_070_800_000,
+        },
+        previous_fetched_at: "2026-08-06T08:00:00.000Z",
+        previous_overview: domainOverviewMetrics({ count: 1_100 }),
+        previous_source_snapshot_at: "2026-08-05T00:00:00.000Z",
+        provider: "dataforseo",
+        scope: "root",
+        source_snapshot_at: "2026-08-12T00:00:00.000Z",
+        state: "partial",
+        target: "example.com",
+      },
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(
+      client.analyzeDomainOverview("prj_a00000000000000000000000", {
+        estimateOnly: false,
+        fresh: true,
+        keywordLimit: 100,
+        languageCode: "en",
+        locationCode: 2840,
+        maxCostCents: 10,
+        pageLimit: 50,
+        scopeOverride: "root",
+        target: "example.com",
+      }),
+    ).resolves.toEqual(body);
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/domain-overview/analyze",
+    );
+    expect(call.init?.method).toBe("POST");
+    expectJsonBody(call.init, {
+      target: "example.com",
+      location_code: 2840,
+      language_code: "en",
+      scope_override: "root",
+      fresh: true,
+      max_cost_cents: 10,
+      estimate_only: false,
+      keyword_limit: 100,
+      page_limit: 50,
+    });
+  });
+
+  it("omits unset optional Domain Overview analysis fields and decodes an estimate", async () => {
+    const body: DomainOverviewAnalyzeResponse = {
+      data: {
+        cached: true,
+        estimate: true,
+        estimated_cost_cents: 0,
+        fresh_estimated_cost_cents: 6,
+        history_estimated_cost_cents: 12,
+        history_mode: "lazy",
+        keyword_page_estimated_cost_cents: 2,
+        language_code: "en",
+        location_code: 2840,
+        page_page_estimated_cost_cents: 2,
+        provider: "dataforseo",
+        scope: "root",
+        target: "example.com",
+      },
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    const result = await client.analyzeDomainOverview("prj_a00000000000000000000000", {
+      estimateOnly: true,
+      languageCode: "en",
+      locationCode: 2840,
+      target: "example.com",
+    });
+
+    expect(result).toEqual(body);
+    expect(result.data.estimated_cost_cents).toBe(0);
+
+    expectJsonBody(lastCall(fetchMock).init, {
+      target: "example.com",
+      location_code: 2840,
+      language_code: "en",
+      estimate_only: true,
+    });
+  });
+
+  it("loads and decodes Domain Overview history", async () => {
+    const body: DomainOverviewHistoryResponse = {
+      data: {
+        cached: false,
+        cost_cents: 12,
+        data: [{ metrics: domainOverviewMetrics(), month: 7, year: 2026 }],
+        fetched_at: "2026-08-13T08:00:00.000Z",
+      },
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(
+      client.loadDomainOverviewHistory("prj_a00000000000000000000000", {
+        fresh: true,
+        languageCode: "en",
+        locationCode: 2840,
+        maxCostCents: 12,
+        scopeOverride: "subdomain",
+        target: "blog.example.com",
+      }),
+    ).resolves.toEqual(body);
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/domain-overview/history",
+    );
+    expect(call.init?.method).toBe("POST");
+    expectJsonBody(call.init, {
+      target: "blog.example.com",
+      location_code: 2840,
+      language_code: "en",
+      scope_override: "subdomain",
+      fresh: true,
+      max_cost_cents: 12,
+    });
+  });
+
+  it("loads and decodes a Domain Overview ranked-keyword page", async () => {
+    const body: DomainOverviewKeywordsResponse = {
+      data: {
+        cached: false,
+        cost_cents: 2,
+        data: {
+          cost_cents: 2,
+          rows: [
+            {
+              cpc_cents: null,
+              difficulty: null,
+              estimated_traffic: 1.5,
+              intent: null,
+              keyword: "seo",
+              position: 8,
+              rank_absolute: 9,
+              rank_absolute_delta: -1,
+              ranking_url: null,
+              search_volume: 500,
+              serp_features: [],
+            },
+          ],
+          total_count: null,
+        },
+        fetched_at: "2026-08-13T08:00:00.000Z",
+      },
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(
+      client.loadDomainOverviewKeywords("prj_a00000000000000000000000", {
+        fresh: true,
+        languageCode: "en",
+        limit: 100,
+        locationCode: 2840,
+        maxCostCents: 2,
+        offset: 100,
+        scopeOverride: "root",
+        target: "example.com",
+      }),
+    ).resolves.toEqual(body);
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/domain-overview/keywords",
+    );
+    expect(call.init?.method).toBe("POST");
+    expectJsonBody(call.init, {
+      target: "example.com",
+      location_code: 2840,
+      language_code: "en",
+      scope_override: "root",
+      fresh: true,
+      max_cost_cents: 2,
+      limit: 100,
+      offset: 100,
+    });
+  });
+
+  it("loads a Domain Overview relevant-page response with minimal paid options", async () => {
+    const body: DomainOverviewPagesResponse = {
+      data: {
+        cached: true,
+        cost_cents: 0,
+        data: {
+          cost_cents: 4,
+          rows: [
+            {
+              etv: 100.5,
+              etv_delta_pct: -2.5,
+              keyword_count: 12,
+              path: "/rank-tracker",
+              top_keyword: "rank tracker",
+              top_keyword_position: 3,
+            },
+          ],
+          total_count: 1,
+        },
+        fetched_at: "2026-08-13T08:00:00.000Z",
+      },
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(
+      client.loadDomainOverviewPages("prj_a00000000000000000000000", {
+        languageCode: "en",
+        limit: 50,
+        locationCode: 2840,
+        maxCostCents: 0,
+        offset: 0,
+        target: "example.com",
+      }),
+    ).resolves.toEqual(body);
+
+    const call = lastCall(fetchMock);
+    expect(call.url).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/domain-overview/pages",
+    );
+    expect(call.init?.method).toBe("POST");
+    expectJsonBody(call.init, {
+      target: "example.com",
+      location_code: 2840,
+      language_code: "en",
+      max_cost_cents: 0,
+      limit: 50,
+      offset: 0,
+    });
+  });
+
+  it("preserves Domain Overview charged-failure details in API problems", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          detail: "The estimated provider cost exceeds max_cost_cents.",
+          errors: { cost_cents: 4, reason: "cost_limit_exceeded" },
+          status: 422,
+          title: "Cost limit exceeded",
+          type: "https://bisibility.com/problems/cost_limit_exceeded",
+        },
+        { status: 422 },
+      ),
+    );
+
+    const error = await client
+      .analyzeDomainOverview("prj_a00000000000000000000000", {
+        languageCode: "en",
+        locationCode: 2840,
+        maxCostCents: 1,
+        target: "example.com",
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(BisibilityApiError);
+    const problem = (error as BisibilityApiError).problem as DomainOverviewProblemDetails;
+    expect(problem.errors).toEqual({
+      cost_cents: 4,
+      reason: "cost_limit_exceeded",
+    });
+  });
+
+  it("documents Domain Overview and Backlinks behavior consistently in the README", () => {
+    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+
+    expect(readme).toContain("Math.ceil(estimate.data.estimated_cost_cents)");
+    expect(readme).toMatch(/fractional cents/);
+    expect(readme).toMatch(/round.*up|ceil/i);
+    expect(readme).toMatch(/Domain Overview and Backlinks preserve the API/);
   });
 
   it("gets keyword metrics with an API-shaped body and cached response counts", async () => {
