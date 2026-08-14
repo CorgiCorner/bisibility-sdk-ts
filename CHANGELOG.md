@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.10.0 - 2026-08-14
+
+- Added language-qualified market fields to keyword and location responses, including canonical
+  `location_key`, `language_code`, and `language_label` values for SDK consumers.
+
 ## 0.9.0 - 2026-08-13
 
 - Added typed Domain Overview analysis, history, keyword, and page operations with explicit

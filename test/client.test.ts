@@ -163,6 +163,8 @@ function keywordMatchResponse(overrides: Partial<KeywordMatchResponse> = {}): Ke
         market: {
           country_code: "US",
           device: "desktop",
+          language_code: "en",
+          language_label: "English",
           location: "Austin, Texas, United States",
           location_key: "US/Texas/Austin",
         },
@@ -177,6 +179,8 @@ function keywordMatchResponse(overrides: Partial<KeywordMatchResponse> = {}): Ke
         market: {
           country_code: "US",
           device: "mobile",
+          language_code: "en",
+          language_label: "English",
           location: "Austin, Texas, United States",
           location_key: "US/Texas/Austin",
         },
@@ -239,8 +243,11 @@ function keyword(overrides: Partial<Keyword> = {}): Keyword {
     device: "desktop",
     id: "kw_b00000000000000000000000",
     intent: null,
+    language_code: "en",
+    language_label: "English",
     latest_position: 4,
     location: "United States",
+    location_key: "US",
     previous_position: 8,
     project_id: "prj_a00000000000000000000000",
     ranking_url: "https://example.com/page",
@@ -844,6 +851,7 @@ describe("BisibilityClient discovery methods", () => {
           display_name: "Austin, Texas, United States",
           hl: "en",
           kind: "city",
+          language_code: "en",
           language_label: "English",
           location_key: "US/Texas/Austin",
           region_code: "TX",
@@ -2184,7 +2192,7 @@ describe("BisibilityClient protected resources", () => {
     expectJsonBody(fetchMock.mock.calls[0]?.[1], body);
   });
 
-  it("sends location, intent, and topic fields and surfaces creation warnings", async () => {
+  it("sends a language-qualified location key and surfaces creation warnings", async () => {
     const warning = 'City "Springfield" not found; tracking at country level.';
     const response: CreateKeywordsResponse = {
       created: 1,
@@ -2207,7 +2215,7 @@ describe("BisibilityClient protected resources", () => {
       country: "United States",
       intent: "commercial",
       keyword: "rank tracker",
-      location_key: "US/Texas/Austin",
+      location_key: "US/Illinois/Springfield@es",
       topic: "tracking",
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(response, { status: 201 }));
@@ -2219,14 +2227,14 @@ describe("BisibilityClient protected resources", () => {
     expectJsonBody(lastCall(fetchMock).init, input);
   });
 
-  it("updates keyword location, intent, and topic fields", async () => {
+  it("updates a keyword with a language-qualified location key", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(keyword({ intent: "informational" })));
 
     await expect(
       client.updateKeyword("kw_b00000000000000000000000", {
         city: null,
         intent: "informational",
-        location_key: "US",
+        location_key: "ES@en",
         topic: null,
       }),
     ).resolves.toMatchObject({ intent: "informational" });
@@ -2234,7 +2242,7 @@ describe("BisibilityClient protected resources", () => {
     expectJsonBody(lastCall(fetchMock).init, {
       city: null,
       intent: "informational",
-      location_key: "US",
+      location_key: "ES@en",
       topic: null,
     });
   });

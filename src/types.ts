@@ -154,6 +154,8 @@ export interface KeywordMatchRequest {
 export interface KeywordMatchMarket {
   country_code: string;
   device: Device;
+  language_code: string;
+  language_label: string;
   location: string;
   location_key: string;
 }
@@ -194,6 +196,7 @@ export interface LocationSuggestion {
   display_name: string;
   hl: string;
   kind: LocationKind;
+  language_code: string;
   language_label: string;
   location_key: string;
   region_code: string | null;
@@ -330,8 +333,11 @@ export interface Keyword {
   device: Device;
   id: KeywordId;
   intent: string | null;
+  language_code: string;
+  language_label: string;
   latest_position: number | null;
   location: string;
+  location_key: string;
   previous_position: number | null;
   project_id: ProjectId;
   ranking_url: string | null;
@@ -357,6 +363,9 @@ export interface CreateKeywordInput {
   intent?: string | null;
   keyword: string;
   location?: string;
+  /**
+   * Canonical country, region, or city key. Append `@language` for a non-default language pair.
+   */
   location_key?: string;
   schedule?: KeywordScheduleInput;
   tags?: readonly string[];
@@ -396,6 +405,9 @@ export interface UpdateKeywordInput {
   intent?: string | null;
   keyword?: string;
   location?: string;
+  /**
+   * Canonical country, region, or city key. Append `@language` for a non-default language pair.
+   */
   location_key?: string;
   schedule?: KeywordScheduleInput;
   tags?: readonly string[];
