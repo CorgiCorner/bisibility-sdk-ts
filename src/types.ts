@@ -15,6 +15,7 @@ export type NotificationId = PublicIdForPrefix<"ntf">;
 export type PersonalAccessTokenId = PublicIdForPrefix<"pat">;
 export type ProjectId = PublicIdForPrefix<"prj">;
 export type RankCheckId = PublicIdForPrefix<"check">;
+export type RankCheckRunId = PublicIdForPrefix<"rcr">;
 export type SavedKeywordId = PublicIdForPrefix<"svkw">;
 export type SavedViewId = PublicIdForPrefix<"viw">;
 export type SessionId = PublicIdForPrefix<"sid">;
@@ -980,8 +981,21 @@ export interface RankCheck {
   previous_position: number | null;
   provider: string;
   ranking_url: string | null;
+  /** The run that produced this check, or null for checks recorded before runs existed. */
+  run_id: RankCheckRunId | null;
   status: RankCheckStatus;
 }
+
+/**
+ * A deployment with a background worker queues the run and answers 202 with its id. Poll the
+ * keyword's rank history for a check carrying this `run_id`, or call `runAndWait`.
+ */
+export interface RankCheckRunQueued {
+  id: RankCheckRunId;
+  status: "queued";
+}
+
+export type RunRankCheckResult = RankCheck | RankCheckRunQueued;
 
 export interface ListRankChecksOptions extends PaginationOptions {
   since?: Date | string;
@@ -994,7 +1008,18 @@ export interface RunRankCheckInput {
 }
 
 export interface RunRankCheckOptions extends RequestOptions {
+  /**
+   * @deprecated The server no longer reads this flag. Whether a check runs inline or is queued for
+   * a background worker is a property of the deployment, so narrow the result on `status` instead.
+   */
   async?: boolean;
+}
+
+export interface RunRankCheckAndWaitOptions extends RunRankCheckOptions {
+  /** How long to keep polling for the queued run's check. Defaults to 120000 ms. */
+  timeoutMs?: number;
+  /** Delay between history polls. Defaults to 1000 ms. */
+  pollIntervalMs?: number;
 }
 
 export type AlertConditionType =

@@ -54,6 +54,7 @@ describe("public ID registry", () => {
       "ntf",
       "pat",
       "prj",
+      "rcr",
       "sid",
       "sig",
       "svkw",

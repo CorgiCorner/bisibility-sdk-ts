@@ -9,6 +9,7 @@ import {
   BisibilityConfigurationError,
   BisibilityNetworkError,
   BisibilityResponseError,
+  BisibilityTimeoutError,
   isUnsupportedApiVersionProblem,
 } from "./errors.js";
 import { iterateCursorPagination } from "./pagination.js";
@@ -130,8 +131,10 @@ import type {
   ResearchKeywordsOptions,
   RevokedMigrationToken,
   RevokedTeamInvite,
+  RunRankCheckAndWaitOptions,
   RunRankCheckInput,
   RunRankCheckOptions,
+  RunRankCheckResult,
   SavedKeyword,
   SavedKeywordId,
   SavedView,
@@ -1246,11 +1249,43 @@ export class BisibilityClient {
     const { async: runAsync, ...requestOptions } = options ?? {};
     const body = input && Object.keys(input).length ? input : undefined;
 
-    return this.request<RankCheck>("POST", `/keywords/${encodedPathSegment(keywordId)}/checks`, {
-      ...requestOptions,
-      body,
-      ...(runAsync ? { query: { async: "true" } } : {}),
-    });
+    // A deployment whose checks run in a background worker answers 202 with the queued run, so
+    // the result is a union. Narrow it on `status`, or use `runRankCheckAndWait`.
+    return this.request<RunRankCheckResult>(
+      "POST",
+      `/keywords/${encodedPathSegment(keywordId)}/checks`,
+      {
+        ...requestOptions,
+        body,
+        ...(runAsync ? { query: { async: "true" } } : {}),
+      },
+    );
+  }
+
+  /** @deprecated Use `client.rankChecks.runAndWait()`. */
+  async runRankCheckAndWait(
+    keywordId: KeywordId,
+    input?: RunRankCheckInput,
+    options?: RunRankCheckAndWaitOptions,
+  ): Promise<RankCheck> {
+    const { pollIntervalMs, timeoutMs, ...runOptions } = options ?? {};
+    const interval = pollIntervalMs ?? 1_000;
+    const deadline = Date.now() + (timeoutMs ?? 120_000);
+    const started = await this.runRankCheck(keywordId, input, runOptions);
+    if (started.status !== "queued") return started;
+
+    const runId = started.id;
+    for (;;) {
+      const history = await this.listRankChecks(keywordId, { limit: 50 }, runOptions);
+      const check = history.data.find((item) => item.run_id === runId);
+      if (check) return check;
+      if (Date.now() >= deadline) {
+        throw new BisibilityTimeoutError(
+          `Rank check run ${runId} did not produce a check in time.`,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
   }
 
   /** @deprecated Use `client.rankChecks.getResult()`. */

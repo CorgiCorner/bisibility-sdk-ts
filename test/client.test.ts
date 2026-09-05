@@ -7,6 +7,7 @@ import {
   BisibilityConfigurationError,
   BisibilityNetworkError,
   BisibilityResponseError,
+  BisibilityTimeoutError,
   createBisibilityClient,
 } from "../src/index.js";
 import type {
@@ -288,6 +289,7 @@ function rankCheck(overrides: Partial<RankCheck> = {}): RankCheck {
     keyword_id: "kw_b00000000000000000000000",
     position: 4,
     previous_position: 8,
+    run_id: null,
     provider: "dataforseo",
     ranking_url: "https://example.com/page",
     status: "completed",
@@ -2347,9 +2349,9 @@ describe("BisibilityClient protected resources", () => {
     expect(lastCall(fetchMock).headers.has("Content-Type")).toBe(false);
   });
 
-  it("runs a rank check asynchronously with the async query parameter", async () => {
-    const running = rankCheck({ checked_at: "2026-01-06T00:00:00.000Z", status: "running" });
-    fetchMock.mockResolvedValueOnce(jsonResponse(running, { status: 202 }));
+  it("returns the queued run when the deployment defers the check to a worker", async () => {
+    const queued = { id: "rcr_c00000000000000000000000", status: "queued" };
+    fetchMock.mockResolvedValueOnce(jsonResponse(queued, { status: 202 }));
 
     await expect(
       client.runRankCheck(
@@ -2357,7 +2359,7 @@ describe("BisibilityClient protected resources", () => {
         { provider_id: "dataforseo" },
         { async: true, idempotencyKey: "idem_async" },
       ),
-    ).resolves.toMatchObject({ status: "running" });
+    ).resolves.toEqual(queued);
 
     const call = lastCall(fetchMock);
     expect(call.url).toBe(
@@ -2366,6 +2368,47 @@ describe("BisibilityClient protected resources", () => {
     expect(call.init?.method).toBe("POST");
     expect(call.headers.get("Idempotency-Key")).toBe("idem_async");
     expectJsonBody(call.init, { provider_id: "dataforseo" });
+  });
+
+  it("follows a queued run to the check that carries its run id", async () => {
+    const finished = rankCheck({ run_id: "rcr_c00000000000000000000000" });
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ id: "rcr_c00000000000000000000000", status: "queued" }, { status: 202 }),
+      )
+      .mockResolvedValueOnce(jsonResponse(list([rankCheck({ run_id: null })])))
+      .mockResolvedValueOnce(jsonResponse(list([finished])));
+
+    await expect(
+      client.runRankCheckAndWait("kw_b00000000000000000000000", undefined, {
+        pollIntervalMs: 1,
+      }),
+    ).resolves.toEqual(finished);
+  });
+
+  it("gives up on a queued run that never produces a check", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ id: "rcr_c00000000000000000000000", status: "queued" }, { status: 202 }),
+      )
+      .mockResolvedValue(jsonResponse(list([])));
+
+    await expect(
+      client.runRankCheckAndWait("kw_b00000000000000000000000", undefined, {
+        pollIntervalMs: 1,
+        timeoutMs: 0,
+      }),
+    ).rejects.toBeInstanceOf(BisibilityTimeoutError);
+  });
+
+  it("returns the finished check without polling when the deployment runs it inline", async () => {
+    const finished = rankCheck();
+    fetchMock.mockResolvedValueOnce(jsonResponse(finished, { status: 201 }));
+
+    await expect(client.runRankCheckAndWait("kw_b00000000000000000000000")).resolves.toEqual(
+      finished,
+    );
+    expect(fetchMock.mock.calls).toHaveLength(1);
   });
 
   it("omits the async query parameter when async is false", async () => {

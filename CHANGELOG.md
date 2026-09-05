@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.11.0 - 2026-09-05
+
+- Modeled the queued rank-check contract: `client.rankChecks.run()` now returns either a completed
+  check or the queued run answered with 202, and rank checks carry `run_id`.
+- Added `client.rankChecks.runAndWait()`, which polls the keyword's rank history for the queued
+  run's check and throws `BisibilityTimeoutError` when the deadline passes.
+- Registered the `rcr` rank-check-run public ID prefix.
 
 ## 0.10.0 - 2026-08-14
 

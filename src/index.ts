@@ -6,6 +6,7 @@ export {
   BisibilityConfigurationError,
   BisibilityError,
   BisibilityNetworkError,
+  BisibilityTimeoutError,
   BisibilityResponseError,
 } from "./errors.js";
 export { iterateCursorPagination } from "./pagination.js";
@@ -272,7 +273,11 @@ export type {
   ResearchKeywordsOptions,
   RevokedMigrationToken,
   RevokedTeamInvite,
+  RankCheckRunId,
+  RankCheckRunQueued,
+  RunRankCheckAndWaitOptions,
   RunRankCheckInput,
+  RunRankCheckResult,
   RunRankCheckOptions,
   CompetitorSavedViewConfig,
   SavedKeyword,

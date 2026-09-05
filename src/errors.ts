@@ -109,6 +109,13 @@ export class BisibilityConfigurationError extends BisibilityError {
   }
 }
 
+export class BisibilityTimeoutError extends BisibilityError {
+  constructor(message: string) {
+    super(message);
+    this.name = "BisibilityTimeoutError";
+  }
+}
+
 export class BisibilityNetworkError extends BisibilityError {
   readonly cause: unknown;
   readonly method: string;

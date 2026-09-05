@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> **Status:** Published on npm as v0.8.0.
+> **Status:** Published on npm as v0.11.0.
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -51,7 +51,7 @@ if (projectId) {
 
   const keywordId = created.results[0]?.keyword.id;
   if (keywordId) {
-    const check = await bisibility.rankChecks.run(keywordId);
+    const check = await bisibility.rankChecks.runAndWait(keywordId);
     console.log(check.position, check.ranking_url);
   }
 }
@@ -288,17 +288,30 @@ await bisibility.projects.updateDefaults(projectId, {
 });
 ```
 
-### Asynchronous rank checks
+### Queued rank checks
 
-`rankChecks.run` runs synchronously by default. Pass `async: true` to enqueue the check instead;
-the server responds `202` with a `RankCheck` in `status: "running"` that you can poll via
-`getRankCheckResult`:
+How a requested check executes is a property of the deployment, not of the call. Where a background
+worker owns execution the server answers `202` with the queued run, and where checks run inline it
+answers `201` with the finished check. `rankChecks.run` returns that union, so narrow it on
+`status`:
 
 ```ts
-const queued = await bisibility.rankChecks.run(keywordId, undefined, { async: true });
-// queued.status === "running"
-const result = await bisibility.rankChecks.getResult(queued.id);
+const started = await bisibility.rankChecks.run(keywordId);
+if (started.status === "queued") {
+  console.log(`Queued as run ${started.id}`);
+}
 ```
+
+Every check carries the `run_id` of the run that produced it, which is how a queued run is followed
+to its result. `rankChecks.runAndWait` does that polling for you and returns the finished check:
+
+```ts
+const check = await bisibility.rankChecks.runAndWait(keywordId, undefined, { timeoutMs: 120_000 });
+console.log(check.position, check.ranking_url);
+```
+
+It throws `BisibilityTimeoutError` if the deadline passes before the check appears. The `async`
+option is retained for compatibility and no longer changes what the server does.
 
 Failed checks carry `status: "failed"`, an `error` message, and provider fallback `attempts`.
 

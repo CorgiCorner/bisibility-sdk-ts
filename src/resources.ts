@@ -163,6 +163,7 @@ export interface ClientResourceNamespaces {
     list: BisibilityClient["listRankChecks"];
     iterate: BisibilityClient["iterateRankChecks"];
     run: BisibilityClient["runRankCheck"];
+    runAndWait: BisibilityClient["runRankCheckAndWait"];
     getResult: BisibilityClient["getRankCheckResult"];
     history: Readonly<{
       export: BisibilityClient["exportRankHistory"];
@@ -373,6 +374,7 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     list: delegate(client, "listRankChecks"),
     iterate: delegate(client, "iterateRankChecks"),
     run: delegate(client, "runRankCheck"),
+    runAndWait: delegate(client, "runRankCheckAndWait"),
     getResult: delegate(client, "getRankCheckResult"),
     history: Object.freeze({
       export: delegate(client, "exportRankHistory"),

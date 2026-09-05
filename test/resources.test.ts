@@ -81,6 +81,7 @@ const resourceMethods = {
   "rankChecks.iterate": "iterateRankChecks",
   "rankChecks.list": "listRankChecks",
   "rankChecks.run": "runRankCheck",
+  "rankChecks.runAndWait": "runRankCheckAndWait",
   "savedViews.create": "createSavedView",
   "savedViews.iterate": "iterateSavedViews",
   "savedViews.list": "listSavedViews",

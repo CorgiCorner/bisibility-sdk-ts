@@ -19,6 +19,7 @@ export const PUBLIC_ID_RESOURCE_REGISTRY = {
   ntf: "notification",
   pat: "personalAccessToken",
   prj: "project",
+  rcr: "rankCheckRun",
   sid: "session",
   sig: "signal",
   svkw: "savedKeyword",
