@@ -1943,18 +1943,22 @@ export interface ListSignalsOptions extends PaginationOptions {
   type?: string;
 }
 
-export type CostEstimateFrequency = "daily" | "monthly" | "weekly";
+export type CostEstimateFrequency = RankCheckFrequency;
 
 export type PricingModel = "flat" | "plan";
 
 export interface GetCostEstimateOptions {
+  /** Custom cadence. Missing or invalid cron leaves monthly estimates unknown. */
+  cron_expression?: string;
+  /** Organic result depth. Defaults to Top 100. */
+  depth?: 10 | 20 | 50 | 100;
   /** Device count per keyword (1 or 2). Defaults to 1. */
   devices?: number;
   /** Rank-check frequency used to estimate monthly checks. Defaults to "daily". */
   frequency?: CostEstimateFrequency;
   /** Keyword count. Required; integer between 0 and 100000. */
   keywords: number;
-  /** Location count per keyword. Defaults to 1; maximum 100. */
+  /** Market count per keyword (location and language). Defaults to 1; maximum 100. */
   locations?: number;
   /** Flat-rate provider option key, for example "standard", "priority", or "live". */
   option?: string;
@@ -2002,26 +2006,38 @@ export interface PlanProviderRate extends ProviderRateBase {
 export type ProviderRate = FlatProviderRate | PlanProviderRate;
 
 export interface CostEstimateBase {
+  billing_units_per_check: number;
   checks_per_run: number;
-  effective_cost_per_check_cents: number;
+  depth: 10 | 20 | 50 | 100;
+  effective_cost_per_check_cents: number | null;
   exceeds_largest_plan: boolean;
   exceeds_selected_plan: boolean;
-  monthly_checks: number;
-  monthly_cost_cents: number;
-  monthly_cost_usd: number;
+  /** Null means the cadence cannot be estimated, not a free monthly cost. */
+  monthly_billing_units: number | null;
+  monthly_checks: number | null;
+  monthly_cost_cents: number | null;
+  monthly_cost_usd: number | null;
   provider_id: string;
   rate_checked_at: string;
   rate_source_url: string;
+  result_pages_per_run: number;
+  runs_per_month: number | null;
 }
 
 export interface FlatCostEstimate extends CostEstimateBase {
   pricing_model: "flat";
-  selected_option: ProviderRateOption;
+  selected_option: ProviderRateOption & {
+    additional_page_cost_cents: number;
+    additional_page_cost_usd: number;
+    top_100_check_cost_cents: number;
+    top_100_check_cost_usd: number;
+  };
 }
 
 export interface PlanCostEstimate extends CostEstimateBase {
   pricing_model: "plan";
-  selected_plan: ProviderRatePlan;
+  /** Absent when a custom cadence cannot be estimated. */
+  selected_plan?: ProviderRatePlan;
 }
 
 export type CostEstimate = FlatCostEstimate | PlanCostEstimate;

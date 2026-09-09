@@ -528,6 +528,8 @@ export class BisibilityClient {
       ...options,
       auth: false,
       query: {
+        cron_expression: input.cron_expression,
+        depth: input.depth,
         devices: input.devices,
         frequency: input.frequency,
         keywords: input.keywords,

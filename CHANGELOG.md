@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0 - 2026-09-09
+
+- Added depth and custom cadence to cost estimates, with typed result pages, billing units, and unknown monthly costs.
+
 ## 0.11.0 - 2026-09-05
 
 - Modeled the queued rank-check contract: `client.rankChecks.run()` now returns either a completed
