@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.0 - 2026-09-20
+
+- Add `maxCostCents` to `listRankedKeywordSuggestions` options and `max_cost_cents` to the rank-check
+  run input; the server refuses the call with `cost_limit_exceeded` when its estimate is higher.
+- Send `X-Bisibility-Source: sdk` on every request so the API can report SDK usage separately;
+  a caller-provided `X-Bisibility-Source` default header wins.
+
 ## 0.12.0 - 2026-09-09
 
 - Added depth and custom cadence to cost estimates, with typed result pages, billing units, and unknown monthly costs.

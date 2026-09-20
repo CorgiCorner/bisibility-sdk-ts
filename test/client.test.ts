@@ -1421,6 +1421,7 @@ describe("BisibilityClient protected resources", () => {
       connectionId: "conn_n00000000000000000000000",
       fresh: true,
       limit: 100,
+      maxCostCents: 5,
       offset: 100,
     });
 
@@ -1428,7 +1429,7 @@ describe("BisibilityClient protected resources", () => {
     expect(result.cached).toBe(false);
     expect(result.rows[0]?.already_tracked).toBe(true);
     expect(lastCall(fetchMock).url).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/ranked-keyword-suggestions?connection_id=conn_n00000000000000000000000&fresh=true&limit=100&offset=100",
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/ranked-keyword-suggestions?connection_id=conn_n00000000000000000000000&fresh=true&limit=100&max_cost_cents=5&offset=100",
     );
   });
 
@@ -2328,7 +2329,10 @@ describe("BisibilityClient protected resources", () => {
       }),
     ).resolves.toMatchObject({ meta: { next_cursor: "cursor_2" } });
     await expect(
-      client.runRankCheck("kw_b00000000000000000000000", { provider_id: "dataforseo" }),
+      client.runRankCheck("kw_b00000000000000000000000", {
+        max_cost_cents: 5,
+        provider_id: "dataforseo",
+      }),
     ).resolves.toMatchObject({
       id: "check_d00000000000000000000000",
     });
@@ -2343,7 +2347,7 @@ describe("BisibilityClient protected resources", () => {
       "https://api.test/api/v1/keywords/kw_b00000000000000000000000/checks",
     );
     expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("POST");
-    expectJsonBody(fetchMock.mock.calls[1]?.[1], { provider_id: "dataforseo" });
+    expectJsonBody(fetchMock.mock.calls[1]?.[1], { max_cost_cents: 5, provider_id: "dataforseo" });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
       "https://api.test/api/v1/rank-checks/check_e00000000000000000000000",
     );

@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> **Version:** v0.12.0.
+> **Version:** v0.13.0.
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -110,7 +110,9 @@ Requests set `redirect: "error"` so credentials are never forwarded through an H
 Custom `fetch` implementations should preserve that behavior.
 
 Requests identify the package with `X-Bisibility-Client: bisibility-sdk-ts/<version>` and, where
-the runtime permits, the same value as `User-Agent`. Inputs mirror JSON wire names, so payload
+the runtime permits, the same value as `User-Agent`. Every request also declares its origin with
+`X-Bisibility-Source: sdk` for usage reporting; pass a different value through the `headers`
+config option (the CLI sends `cli`, the MCP server sends `mcp`). Inputs mirror JSON wire names, so payload
 fields use snake_case (for example `tracking_scope` and `expires_in_days`). SDK-only configuration
 and request options remain camelCase.
 

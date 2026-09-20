@@ -906,6 +906,7 @@ export class BisibilityClient {
           connection_id: filters.connectionId,
           fresh: filters.fresh,
           limit: filters.limit,
+          max_cost_cents: filters.maxCostCents,
           offset: filters.offset,
         },
       },
@@ -2223,6 +2224,9 @@ export class BisibilityClient {
     const headers = mergeHeaders(this.#defaultHeaders, options.headers);
     if (this.#projectId !== undefined && !headers.has("X-Bisibility-Project")) {
       headers.set("X-Bisibility-Project", this.#projectId);
+    }
+    if (!headers.has("X-Bisibility-Source")) {
+      headers.set("X-Bisibility-Source", "sdk");
     }
     const projectHeader = headers.get("X-Bisibility-Project");
     if (projectHeader !== null && !isPublicIdOfType(projectHeader, "prj")) {

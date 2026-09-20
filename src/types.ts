@@ -503,6 +503,8 @@ export interface ListRankedKeywordSuggestionsOptions {
   connectionId?: ConnectionId;
   fresh?: boolean;
   limit?: number;
+  /** Server-enforced ceiling for the estimated provider cost of a cache miss, in cents. */
+  maxCostCents?: number;
   offset?: number;
 }
 
@@ -1004,6 +1006,8 @@ export interface ListRankChecksOptions extends PaginationOptions {
 }
 
 export interface RunRankCheckInput {
+  /** Server-enforced ceiling for the preflight estimate of this check, in cents. */
+  max_cost_cents?: number;
   provider_id?: ProviderId;
 }
 
