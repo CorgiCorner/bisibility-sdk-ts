@@ -9,11 +9,18 @@ import {
   BisibilityResponseError,
   BisibilityTimeoutError,
   createBisibilityClient,
+  isBacklinksEstimate,
+  isBacklinksSnapshot,
+  isKeywordResearchEstimate,
+  isKeywordResearchResult,
 } from "../src/index.js";
 import type {
   ActiveMigrationToken,
   AlertRule,
   ApiKey,
+  BacklinksEstimate,
+  BacklinksResponse,
+  BacklinksSnapshot,
   Capability,
   CloudImportChunkResponse,
   CloudImportCompatibility,
@@ -38,7 +45,9 @@ import type {
   KeywordBulkResponse,
   KeywordMatchResponse,
   KeywordMetricsResponse,
+  KeywordResearchEstimate,
   KeywordResearchResponse,
+  KeywordResearchResult,
   ListResponse,
   LivenessResponse,
   LocationSuggestionsResponse,
@@ -1434,7 +1443,7 @@ describe("BisibilityClient protected resources", () => {
   });
 
   it("researches keywords with spending controls and maps partial source diagnostics", async () => {
-    const body: KeywordResearchResponse = {
+    const body: KeywordResearchResult = {
       cached: false,
       connections: [
         { id: "conn_n00000000000000000000000", label: "DataForSEO", provider: "dataforseo" },
@@ -1509,42 +1518,19 @@ describe("BisibilityClient protected resources", () => {
     );
   });
 
-  it("maps a cache-aware keyword research estimate", async () => {
-    const body: KeywordResearchResponse = {
+  it("maps a cost-only keyword research estimate without rows or source statuses", async () => {
+    const body: KeywordResearchEstimate = {
       cached: false,
       connections: [
         { id: "conn_n00000000000000000000000", label: "DataForSEO", provider: "dataforseo" },
       ],
-      cost_cents: 0,
+      cost_cents: 2,
       estimate: true,
-      fetched_at: "2026-07-22T10:00:00.000Z",
       provider: "DataForSEO",
-      rows: [],
       sources: [
-        {
-          cached: true,
-          cost_cents: 0,
-          returned: 0,
-          source: "related",
-          status: "ok",
-        },
-        {
-          cached: false,
-          cost_cents: 2,
-          returned: 0,
-          source: "suggestion",
-          status: "ok",
-        },
-        {
-          cached: false,
-          cost_cents: 0,
-          reason: "cost_limit",
-          returned: 0,
-          source: "idea",
-          status: "skipped",
-        },
+        { cached: true, cost_cents: 0, source: "related" },
+        { cached: false, cost_cents: 2, source: "suggestion" },
       ],
-      total_count: 0,
     };
     fetchMock.mockResolvedValueOnce(jsonResponse(body));
 
@@ -1556,9 +1542,52 @@ describe("BisibilityClient protected resources", () => {
 
     expect(result).toEqual(body);
     expect(result.estimate).toBe(true);
+    expect(result).not.toHaveProperty("rows");
+    expect(result).not.toHaveProperty("fetched_at");
+    expect(result).not.toHaveProperty("total_count");
     expect(lastCall(fetchMock).url).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/keyword-research?estimate_only=true&max_cost_cents=2&seed=rank+tracker",
     );
+  });
+
+  it("narrows a keyword research response with the estimate type guards", async () => {
+    const estimate: KeywordResearchEstimate = {
+      cached: true,
+      connections: [],
+      cost_cents: 0,
+      estimate: true,
+      provider: "DataForSEO",
+      sources: [{ cached: true, cost_cents: 0, source: "related" }],
+    };
+    const completed: KeywordResearchResult = {
+      cached: true,
+      connections: [],
+      cost_cents: 0,
+      fetched_at: "2026-09-21T09:00:00.000Z",
+      provider: "DataForSEO",
+      rows: [],
+      sources: [{ cached: true, cost_cents: 0, returned: 0, source: "related", status: "ok" }],
+      total_count: 0,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(estimate));
+    fetchMock.mockResolvedValueOnce(jsonResponse(completed));
+
+    const estimateOnly: boolean = true;
+    const first: KeywordResearchResponse = await client.researchKeywords(
+      "prj_a00000000000000000000000",
+      { estimateOnly, seed: "rank tracker" },
+    );
+    const second: KeywordResearchResponse = await client.researchKeywords(
+      "prj_a00000000000000000000000",
+      { estimateOnly: false, seed: "rank tracker" },
+    );
+
+    expect(isKeywordResearchEstimate(first)).toBe(true);
+    expect(isKeywordResearchResult(first)).toBe(false);
+    expect(isKeywordResearchEstimate(first) ? first.sources[0]?.cost_cents : null).toBe(0);
+    expect(isKeywordResearchResult(second)).toBe(true);
+    expect(isKeywordResearchEstimate(second)).toBe(false);
+    expect(isKeywordResearchResult(second) ? second.total_count : null).toBe(0);
   });
 
   it("analyzes backlinks with camelCase options mapped to snake_case query parameters", async () => {
@@ -1584,6 +1613,104 @@ describe("BisibilityClient protected resources", () => {
     );
     expect(call.init?.method).toBe("GET");
     expect(call.init?.body).toBeUndefined();
+  });
+
+  it("returns a cost-only backlinks estimate for a dry run", async () => {
+    const data: BacklinksEstimate = {
+      cached: false,
+      cached_until: null,
+      cost_cents: 7,
+      estimate: true,
+      estimated_cost_cents: 7,
+      include_subdomains: true,
+      provider: "DataForSEO",
+      target: "example.com",
+      target_scope: "site",
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data }));
+
+    const result = await client.analyzeBacklinks("prj_a00000000000000000000000", {
+      estimateOnly: true,
+      target: "example.com",
+    });
+
+    expect(result.data).toEqual(data);
+    expect(result.data.estimate).toBe(true);
+    expect(result.data.estimated_cost_cents).toBe(7);
+    for (const absent of [
+      "summary",
+      "history",
+      "rows",
+      "fetched_at",
+      "fetched_row_count",
+      "total_rows_available",
+    ]) {
+      expect(result.data).not.toHaveProperty(absent);
+    }
+    expect(lastCall(fetchMock).url).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/backlinks?target=example.com&estimate_only=true",
+    );
+  });
+
+  it("narrows a backlinks result with the estimate type guards", async () => {
+    const estimate: BacklinksEstimate = {
+      cached: true,
+      cached_until: "2026-09-22T09:00:00.000Z",
+      cost_cents: 0,
+      estimate: true,
+      estimated_cost_cents: 7,
+      include_subdomains: true,
+      provider: "DataForSEO",
+      target: "example.com",
+      target_scope: "site",
+    };
+    const snapshot: BacklinksSnapshot = {
+      cached: true,
+      cached_until: "2026-09-22T09:00:00.000Z",
+      cost_cents: 0,
+      fetched_at: "2026-09-21T09:00:00.000Z",
+      fetched_row_count: 0,
+      history: [],
+      include_subdomains: true,
+      provider: "DataForSEO",
+      rows: [],
+      summary: {
+        backlinks_total: 12,
+        broken_backlinks: 0,
+        broken_pages: 0,
+        dofollow_pct: 80,
+        domain_rank: 40,
+        lost_backlinks: 0,
+        lost_referring_domains: 0,
+        new_backlinks: 0,
+        new_referring_domains: 0,
+        referring_domains_total: 4,
+        referring_pages: 6,
+        spam_score: 1,
+      },
+      target: "example.com",
+      target_scope: "site",
+      total_rows_available: 12,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: estimate }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: snapshot }));
+
+    const estimateOnly: boolean = true;
+    const first: BacklinksResponse = await client.analyzeBacklinks("prj_a00000000000000000000000", {
+      estimateOnly,
+      target: "example.com",
+    });
+    const second: BacklinksResponse = await client.analyzeBacklinks(
+      "prj_a00000000000000000000000",
+      { target: "example.com" },
+    );
+
+    expect(isBacklinksEstimate(first.data)).toBe(true);
+    expect(isBacklinksSnapshot(first.data)).toBe(false);
+    expect(isBacklinksEstimate(first.data) ? first.data.estimated_cost_cents : null).toBe(7);
+    expect(isBacklinksSnapshot(second.data)).toBe(true);
+    expect(isBacklinksEstimate(second.data)).toBe(false);
+    expect(isBacklinksSnapshot(second.data) ? second.data.summary.backlinks_total : null).toBe(12);
   });
 
   it("omits unset optional backlinks query parameters", async () => {
@@ -2831,10 +2958,9 @@ describe("BisibilityClient protected resources", () => {
   });
 
   it("lists providers and manages provider connections", async () => {
-    const testResult: ProviderTestResult = { balance: 15.25, message: "Connected", ok: true };
+    const testResult: ProviderTestResult = { balance: 15.25, message: "Connected.", ok: true };
     fetchMock.mockResolvedValueOnce(jsonResponse(list([provider()], "provider_cursor")));
     fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }));
-    fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })));
     fetchMock.mockResolvedValueOnce(jsonResponse(testResult));
     fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection({ enabled: false })));
     fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection({ enabled: true })));
@@ -2844,7 +2970,7 @@ describe("BisibilityClient protected resources", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection({ is_primary: true })));
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }));
     fetchMock.mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }));
-    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Skipped", ok: true }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Connected.", ok: true }));
 
     await expect(
       client.listProviders("prj_a00000000000000000000000", {
@@ -2928,41 +3054,36 @@ describe("BisibilityClient protected resources", () => {
     expectJsonBody(fetchMock.mock.calls[1]?.[1], {
       cost_per_check: 0.01,
       credentials: { api_key: "secret" },
+      priority: 0,
     });
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/serpapi",
-    );
-    expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("PATCH");
-    expectJsonBody(fetchMock.mock.calls[2]?.[1], { priority: 0 });
-    expect(fetchMock.mock.calls[3]?.[0]).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/serpapi/test",
     );
-    expectJsonBody(fetchMock.mock.calls[3]?.[1], { credentials: { api_key: "secret" } });
-    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+    expectJsonBody(fetchMock.mock.calls[2]?.[1], { credentials: { api_key: "secret" } });
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/serpapi",
     );
-    expect(fetchMock.mock.calls[4]?.[1]?.method).toBe("PATCH");
-    expectJsonBody(fetchMock.mock.calls[4]?.[1], { enabled: false, priority: 25 });
+    expect(fetchMock.mock.calls[3]?.[1]?.method).toBe("PATCH");
+    expectJsonBody(fetchMock.mock.calls[3]?.[1], { enabled: false, priority: 25 });
+    expectJsonBody(fetchMock.mock.calls[4]?.[1], { enabled: true });
     expectJsonBody(fetchMock.mock.calls[5]?.[1], { enabled: true });
-    expectJsonBody(fetchMock.mock.calls[6]?.[1], { enabled: true });
-    expectJsonBody(fetchMock.mock.calls[7]?.[1], { enabled: false });
-    expectJsonBody(fetchMock.mock.calls[8]?.[1], { priority: 20 });
-    expectJsonBody(fetchMock.mock.calls[9]?.[1], { priority: 0 });
-    expect(fetchMock.mock.calls[10]?.[1]?.method).toBe("DELETE");
+    expectJsonBody(fetchMock.mock.calls[6]?.[1], { enabled: false });
+    expectJsonBody(fetchMock.mock.calls[7]?.[1], { priority: 20 });
+    expectJsonBody(fetchMock.mock.calls[8]?.[1], { priority: 0 });
+    expect(fetchMock.mock.calls[9]?.[1]?.method).toBe("DELETE");
+    expect(fetchMock.mock.calls[10]?.[1]?.body).toBeUndefined();
+    expect(new Headers(fetchMock.mock.calls[10]?.[1]?.headers).has("Content-Type")).toBe(false);
     expect(fetchMock.mock.calls[11]?.[1]?.body).toBeUndefined();
     expect(new Headers(fetchMock.mock.calls[11]?.[1]?.headers).has("Content-Type")).toBe(false);
-    expect(fetchMock.mock.calls[12]?.[1]?.body).toBeUndefined();
-    expect(new Headers(fetchMock.mock.calls[12]?.[1]?.headers).has("Content-Type")).toBe(false);
   });
 
-  it("translates legacy provider priority inputs to the priority-only server contract", async () => {
+  it("sends provider priority in the connect body and keeps the legacy primary alias", async () => {
     fetchMock
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 }), { status: 201 }))
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 25 }), { status: 201 }))
       .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
-      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })))
       .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
       .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 25 })))
-      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
-      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })))
       .mockResolvedValueOnce(jsonResponse(providerConnection()))
       .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })))
       .mockResolvedValueOnce(jsonResponse(providerConnection()));
@@ -2975,6 +3096,9 @@ describe("BisibilityClient protected resources", () => {
     );
     await client.connectProvider("prj_a00000000000000000000000", "serpapi", { priority: 25 });
     await client.connectProvider("prj_a00000000000000000000000", "serpapi", { primary: false });
+    await client.connectProvider("prj_a00000000000000000000000", "serpapi", {
+      credentials: { api_key: "secret" },
+    });
     await client.updateProviderSettings("prj_a00000000000000000000000", "serpapi", {
       primary: true,
     });
@@ -2984,44 +3108,42 @@ describe("BisibilityClient protected resources", () => {
     await client.setPrimaryProvider("prj_a00000000000000000000000", "serpapi");
     await client.setPrimaryProvider("prj_a00000000000000000000000", "serpapi", false);
 
-    expect(fetchMock.mock.calls).toHaveLength(9);
-    expectJsonBody(fetchMock.mock.calls[0]?.[1], { credentials: { api_key: "secret" } });
+    expect(fetchMock.mock.calls).toHaveLength(8);
+    // primary: true wins over an explicit priority and connects with priority 0 in one request.
+    expectJsonBody(fetchMock.mock.calls[0]?.[1], {
+      credentials: { api_key: "secret" },
+      priority: 0,
+    });
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Idempotency-Key")).toBe(
       "connect_1",
     );
-    expectJsonBody(fetchMock.mock.calls[1]?.[1], { priority: 0 });
-    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).has("Idempotency-Key")).toBe(false);
+    expectJsonBody(fetchMock.mock.calls[1]?.[1], { priority: 25 });
+    // primary: false stays a no-op, so the connection keeps its place in the fallback chain.
     expect(fetchMock.mock.calls[2]?.[1]?.body).toBeUndefined();
-    expectJsonBody(fetchMock.mock.calls[3]?.[1], { priority: 25 });
-    expect(fetchMock.mock.calls[4]?.[1]?.body).toBeUndefined();
-    expectJsonBody(fetchMock.mock.calls[5]?.[1], { priority: 0 });
-    expectJsonBody(fetchMock.mock.calls[6]?.[1], {});
-    expectJsonBody(fetchMock.mock.calls[7]?.[1], { priority: 0 });
-    expectJsonBody(fetchMock.mock.calls[8]?.[1], {});
+    expectJsonBody(fetchMock.mock.calls[3]?.[1], { credentials: { api_key: "secret" } });
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(4);
+    expectJsonBody(fetchMock.mock.calls[4]?.[1], { priority: 0 });
+    expectJsonBody(fetchMock.mock.calls[5]?.[1], {});
+    expectJsonBody(fetchMock.mock.calls[6]?.[1], { priority: 0 });
+    expectJsonBody(fetchMock.mock.calls[7]?.[1], {});
   });
 
-  it("does not roll back a connected provider when compatibility promotion fails", async () => {
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
-      .mockResolvedValueOnce(jsonResponse({ detail: "Priority update failed." }, { status: 500 }));
+  it("issues no follow-up request when the connect request fails", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "Connect failed." }, { status: 500 }));
 
     await expect(
       client.connectProvider("prj_a00000000000000000000000", "serpapi", { primary: true }),
     ).rejects.toBeInstanceOf(BisibilityApiError);
 
-    expect(fetchMock.mock.calls).toHaveLength(2);
+    expect(fetchMock.mock.calls).toHaveLength(1);
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
-    expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("PATCH");
-    expectJsonBody(fetchMock.mock.calls[1]?.[1], { priority: 0 });
-    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
   });
 
-  it("suppresses every idempotency source from a provider priority promotion", async () => {
+  it("keeps caller idempotency keys on the single connect request", async () => {
     fetchMock
-      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
-      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })))
-      .mockResolvedValueOnce(jsonResponse(providerConnection(), { status: 201 }))
-      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 })));
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 }), { status: 201 }))
+      .mockResolvedValueOnce(jsonResponse(providerConnection({ priority: 0 }), { status: 201 }));
     const withDefaultIdempotencyHeader = createClient(fetchMock, {
       headers: { "idempotency-key": "default-key", "X-Trace-Default": "default-trace" },
     });
@@ -3043,40 +3165,28 @@ describe("BisibilityClient protected resources", () => {
       },
     );
 
-    const defaultPostHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
-    const defaultPatchHeaders = new Headers(fetchMock.mock.calls[1]?.[1]?.headers);
-    const requestPostHeaders = new Headers(fetchMock.mock.calls[2]?.[1]?.headers);
-    const requestPatchHeaders = new Headers(fetchMock.mock.calls[3]?.[1]?.headers);
-    expect(defaultPostHeaders.get("Idempotency-Key")).toBe("default-key");
-    expect(defaultPostHeaders.get("X-Trace-Default")).toBe("default-trace");
-    expect(defaultPatchHeaders.has("Idempotency-Key")).toBe(false);
-    expect(defaultPatchHeaders.get("X-Trace-Default")).toBe("default-trace");
-    expect(requestPostHeaders.get("Idempotency-Key")).toBe("option-key");
-    expect(requestPostHeaders.get("X-Trace-Request")).toBe("request-trace");
-    expect(requestPatchHeaders.has("Idempotency-Key")).toBe(false);
-    expect(requestPatchHeaders.get("X-Trace-Default")).toBe("default-trace");
-    expect(requestPatchHeaders.get("X-Trace-Request")).toBe("request-trace");
+    expect(fetchMock.mock.calls).toHaveLength(2);
+    const defaultHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    const requestHeaders = new Headers(fetchMock.mock.calls[1]?.[1]?.headers);
+    expect(defaultHeaders.get("Idempotency-Key")).toBe("default-key");
+    expect(defaultHeaders.get("X-Trace-Default")).toBe("default-trace");
+    expect(requestHeaders.get("Idempotency-Key")).toBe("option-key");
+    expect(requestHeaders.get("X-Trace-Default")).toBe("default-trace");
+    expect(requestHeaders.get("X-Trace-Request")).toBe("request-trace");
   });
 
-  it("does not promote a provider when the connect request fails", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "Connect failed." }, { status: 500 }));
-
-    await expect(
-      client.connectProvider("prj_a00000000000000000000000", "serpapi", { primary: true }),
-    ).rejects.toBeInstanceOf(BisibilityApiError);
-
-    expect(fetchMock.mock.calls).toHaveLength(1);
-    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
-  });
-
-  it("connects and tests a plausible provider with endpoint credentials", async () => {
+  it("connects and tests a plausible provider with site-domain credentials", async () => {
     const connection = providerConnection({ kind: "analytics", provider: "plausible" });
+    const connected = { message: "Connected \u00b7 example.com.", ok: true };
     fetchMock.mockResolvedValueOnce(jsonResponse(connection, { status: 201 }));
-    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Connected", ok: true }));
+    fetchMock.mockResolvedValueOnce(jsonResponse(connected));
+    fetchMock.mockResolvedValueOnce(jsonResponse(connected));
 
+    // login is the Plausible site_id (the site domain); api_key is the Stats API token.
     const credentials = {
-      api_key: "plausible-key",
+      api_key: "plausible-stats-token",
       endpoint: "https://plausible.example.com",
+      login: "example.com",
     } as const;
     await expect(
       client.connectProvider("prj_a00000000000000000000000", "plausible", {
@@ -3086,7 +3196,13 @@ describe("BisibilityClient protected resources", () => {
     ).resolves.toMatchObject({ kind: "analytics", provider: "plausible" });
     await expect(
       client.testProviderConnection("prj_a00000000000000000000000", "plausible", { credentials }),
-    ).resolves.toEqual({ message: "Connected", ok: true });
+    ).resolves.toEqual(connected);
+    // login may be omitted; the server defaults it to the tracked project domain.
+    await expect(
+      client.testProviderConnection("prj_a00000000000000000000000", "plausible", {
+        credentials: { api_key: "plausible-stats-token" },
+      }),
+    ).resolves.toEqual(connected);
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/plausible/connect",
@@ -3096,6 +3212,9 @@ describe("BisibilityClient protected resources", () => {
       "https://api.test/api/v1/projects/prj_a00000000000000000000000/providers/plausible/test",
     );
     expectJsonBody(fetchMock.mock.calls[1]?.[1], { credentials });
+    expectJsonBody(fetchMock.mock.calls[2]?.[1], {
+      credentials: { api_key: "plausible-stats-token" },
+    });
   });
 
   it("lists, creates, and deletes saved views through scoped and top-level routes", async () => {

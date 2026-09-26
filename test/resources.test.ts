@@ -4,6 +4,10 @@ import { BisibilityClient } from "../src/client.js";
 type Callable = (...args: unknown[]) => unknown;
 
 const resourceMethods = {
+  "researchReports.list": "listStoredResearchReports",
+  "researchReports.get": "getStoredResearchReport",
+  "providers.budgets.list": "listProviderBudgets",
+  "providers.budgets.update": "updateProviderBudgets",
   "account.get": "getMe",
   "account.tokens.create": "createMyToken",
   "account.tokens.list": "listMyTokens",
@@ -139,6 +143,7 @@ const topLevelResources = [
   "pricing",
   "projects",
   "providers",
+  "researchReports",
   "rankChecks",
   "savedViews",
   "signals",

@@ -211,12 +211,36 @@ const report = await bisibility.domainOverview.analyze(project.id, {
 });
 ```
 
-### Provider priorities
+### Provider connections and priorities
 
-Provider order uses ascending priority. The deprecated `primary` input and `setPrimary` aliases
-remain compatible: `true` promotes the provider with `priority: 0`, while `false` leaves it
-unchanged. On `connectProvider`, promotion is a follow-up PATCH after the connection is saved; if
-that PATCH fails, the connection remains saved and the method throws the PATCH error.
+Provider order uses ascending priority. `providers.connect()` accepts an optional `priority`, a
+whole number from 0 to 1000, and sends it with the connect request: `0` promotes the provider and
+renumbers the fallback chain, while an omitted priority keeps a reconnected provider's place and
+appends a new connection to the end of the chain. The deprecated `primary` input and `setPrimary`
+aliases remain compatible: `true` connects with `priority: 0`, while `false` leaves the order
+unchanged.
+
+```ts
+await bisibility.providers.connect(projectId, "dataforseo", {
+  credentials: { login: "api@example.com", api_key: "dataforseo-token" },
+  priority: 0
+});
+```
+
+Credentials are provider-specific. For Plausible, `credentials.login` is the site domain
+configured in Plausible (its site_id, such as `example.com`) and defaults to the tracked project
+domain when omitted, while `credentials.api_key` is the Stats API token:
+
+```ts
+await bisibility.providers.connect(projectId, "plausible", {
+  credentials: { api_key: "plausible-stats-token", login: "example.com" }
+});
+
+const probe = await bisibility.providers.test(projectId, "plausible", {
+  credentials: { api_key: "plausible-stats-token" }
+});
+// probe.message is "Connected." for SERP providers and "Connected · <detail>." for analytics providers.
+```
 
 `apiKeys.list()` and `apiKeys.create()` use the current project selected by authentication. Pass
 `{ projectId }` to select the explicit project route. A personal access token spanning multiple
@@ -256,8 +280,65 @@ const research = await bisibility.keywords.research(projectId, {
 });
 ```
 
-Set `estimateOnly: true` for a free cache-aware dry run before a cost-sensitive request. Source
-diagnostics report `ok`, `failed`, or `skipped`, with a machine-readable reason when applicable.
+Set `estimateOnly: true` for a free cache-aware dry run before a cost-sensitive request. A dry run
+returns a cost-only `KeywordResearchEstimate` with `estimate: true`, an aggregate `cost_cents`, and
+one `{ source, cost_cents, cached }` entry per planned source. It never carries `rows`,
+`fetched_at`, `total_count`, or source statuses, so it cannot be mistaken for an empty result.
+`keywords.research` returns `KeywordResearchEstimate | KeywordResearchResult`; narrow it with
+`isKeywordResearchEstimate` (or `isKeywordResearchResult`) when `estimateOnly` is a variable:
+
+```ts
+import { isKeywordResearchEstimate } from "@bisibility/sdk";
+
+const result = await bisibility.keywords.research(projectId, {
+  seed: "rank tracker",
+  estimateOnly
+});
+
+if (isKeywordResearchEstimate(result)) {
+  console.log(result.cost_cents, result.sources);
+} else {
+  console.log(result.total_count, result.rows);
+}
+```
+
+A literal `estimateOnly: true` resolves to `KeywordResearchEstimate` and a literal `false` or an
+omitted `estimateOnly` resolves to `KeywordResearchResult`, so existing calls need no narrowing.
+On a completed result, source diagnostics report `ok`, `failed`, or `skipped`, with a
+machine-readable reason when applicable.
+
+### Backlinks
+
+`backlinks.analyze` returns the API `{ data }` envelope around either a `BacklinksSnapshot` or,
+with `estimateOnly: true`, a cost-only `BacklinksEstimate`. An estimate carries `estimate: true`,
+`estimated_cost_cents`, `cost_cents`, `cached`, `cached_until`, `provider`, and the normalized
+target, and never `summary`, `history`, `rows`, `fetched_at`, `fetched_row_count`, or
+`total_rows_available`, so it cannot be mistaken for an empty backlink profile. Narrow the union
+with `isBacklinksEstimate` (or `isBacklinksSnapshot`):
+
+```ts
+import { isBacklinksEstimate } from "@bisibility/sdk";
+
+const dryRun = await bisibility.backlinks.analyze(projectId, {
+  target: "example.com",
+  estimateOnly: true
+});
+
+const report = await bisibility.backlinks.analyze(projectId, {
+  target: "example.com",
+  resultLimit: 100,
+  maxCostCents: Math.ceil(dryRun.data.estimated_cost_cents)
+});
+
+console.log(report.data.summary.backlinks_total, report.data.rows.length);
+
+const result = await bisibility.backlinks.analyze(projectId, { target: "example.com", estimateOnly });
+if (isBacklinksEstimate(result.data)) console.log(result.data.estimated_cost_cents);
+```
+
+As with keyword research, a literal `estimateOnly: true` resolves to `BacklinksEstimate` and a
+literal `false` or an omitted `estimateOnly` resolves to `BacklinksSnapshot`.
+`backlinks.extendSnapshot` always returns a `BacklinksSnapshot`.
 
 `keywords.metrics.get` hydrates provider metrics for one to 700 keywords. Its input mirrors the API
 request body, cached rows do not contribute to `cost_cents`, and API write scope is required:
@@ -286,9 +367,19 @@ persisted `ProjectDefaults` (default market, schedule, and timezone for new keyw
 await bisibility.projects.updateDefaults(projectId, {
   country: "United States",
   device: "desktop",
-  frequency: "daily"
+  frequency: "daily",
+  serp_depth: 50
 });
 ```
+
+The schedule fields (`frequency`, `cron_expression`, `jitter_minutes`, `timezone`) are replaced as
+a whole. `serp_depth` (`10`, `20`, `50`, or `100`) and `serp_stop_on_match` are independent of the
+schedule: omitting either keeps its stored value.
+
+### Sitemap monitors
+
+A project has one sitemap monitor whose ID is the project ID, so
+`sitemapMonitors.update(projectId, monitorId, input)` takes the same value for both identifiers.
 
 ### Queued rank checks
 
@@ -388,3 +479,17 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+## Saved reports and provider budgets
+
+Saved report reads never invoke a provider. Use `fresh_until` to determine freshness;
+`state` is `fresh` or `stale`, while a domain report keeps its data outcome in `data_state`.
+Own-key and credit budgets are independent. Omit a field to keep it and explicitly clear
+a surface to remove its budget. Credit budgets always use cents.
+
+```ts
+const saved = await client.researchReports.list(projectId);
+const report = await client.researchReports.get(projectId, "keyword_research", { seed: "example", resultLimit: 100 });
+const budgets = await client.providers.budgets.list(projectId);
+await client.providers.budgets.update(projectId, "dataforseo", { own: { app: null }, credits: { programmatic: { amount_per_month: 500, unit: "cents" } } });
+```

@@ -15,6 +15,14 @@ import {
 import { iterateCursorPagination } from "./pagination.js";
 import { validatePublicIdRequest, validatePublicIdResponse } from "./public-id-contract.js";
 import { isPublicIdOfType } from "./public-id.js";
+import type {
+  ProviderBudgets,
+  ProviderBudgetsUpdate,
+  StoredResearchReportByKind,
+  StoredResearchReportKind,
+  StoredResearchReportOptions,
+  StoredResearchReportsResponse,
+} from "./reports-budgets.js";
 import { type ClientResourceNamespaces, installResourceNamespaces } from "./resources.js";
 import type {
   AddCompetitorInput,
@@ -25,7 +33,9 @@ import type {
   AnalyzeDomainOverviewOptions,
   ApiKey,
   ApiKeyId,
-  BacklinksSnapshot,
+  BacklinksEstimate,
+  BacklinksResponse,
+  BacklinksSnapshotResponse,
   BisibilityClientConfig,
   CapabilitiesResponse,
   CloudImportChunkResponse,
@@ -66,7 +76,9 @@ import type {
   DomainOverviewKeywordsResponse,
   DomainOverviewPagesResponse,
   DomainOverviewReport,
+  EstimateBacklinksOptions,
   EstimateDomainOverviewOptions,
+  EstimateKeywordResearchOptions,
   ExportRankHistoryCsvOptions,
   ExportRankHistoryJsonOptions,
   FetchLike,
@@ -82,7 +94,9 @@ import type {
   KeywordMatchRequest,
   KeywordMatchResponse,
   KeywordMetricsResponse,
+  KeywordResearchEstimate,
   KeywordResearchResponse,
+  KeywordResearchResult,
   ListKeywordsOptions,
   ListRankChecksOptions,
   ListRankedKeywordSuggestionsOptions,
@@ -92,10 +106,12 @@ import type {
   ListSignalsOptions,
   ListTrafficSnapshotsOptions,
   LivenessResponse,
+  LoadBacklinksSnapshotOptions,
   LoadDomainOverviewHistoryOptions,
   LoadDomainOverviewKeywordsOptions,
   LoadDomainOverviewPagesOptions,
   LoadDomainOverviewReportOptions,
+  LoadKeywordResearchOptions,
   LoadMoreBacklinkRowsOptions,
   LocationSuggestionsResponse,
   Me,
@@ -186,7 +202,6 @@ interface InternalRequestOptions extends RequestOptions {
   parseAs?: "json" | "text";
   query?: QueryParams;
   skipApiVersionPreflight?: boolean;
-  suppressIdempotencyKey?: boolean;
 }
 
 function isAbsoluteUrl(value: string) {
@@ -228,13 +243,9 @@ function providerSettingsPayload(input: ProviderSettingsInput) {
 }
 
 function connectProviderPayload(input: ConnectProviderInput) {
-  const { primary, priority, ...body } = input;
-  return { body, priority: primary === true ? 0 : priority };
-}
-
-function withoutIdempotencyKey(options: RequestOptions | undefined) {
-  const { idempotencyKey: _idempotencyKey, ...requestOptions } = options ?? {};
-  return { ...requestOptions, suppressIdempotencyKey: true };
+  const { primary, priority, ...rest } = input;
+  const resolved = primary === true ? 0 : priority;
+  return resolved === undefined ? rest : { ...rest, priority: resolved };
 }
 
 function stringOrUndefined(value: unknown) {
@@ -436,6 +447,7 @@ export class BisibilityClient {
   declare readonly notificationSettings: ClientResourceNamespaces["notificationSettings"];
   declare readonly pricing: ClientResourceNamespaces["pricing"];
   declare readonly projects: ClientResourceNamespaces["projects"];
+  declare readonly researchReports: ClientResourceNamespaces["researchReports"];
   declare readonly providers: ClientResourceNamespaces["providers"];
   declare readonly rankChecks: ClientResourceNamespaces["rankChecks"];
   declare readonly savedViews: ClientResourceNamespaces["savedViews"];
@@ -660,7 +672,12 @@ export class BisibilityClient {
     );
   }
 
-  /** @deprecated Use `client.projects.updateDefaults()`. */
+  /**
+   * Update the project defaults. The schedule fields (`frequency`, `cron_expression`,
+   * `jitter_minutes`, `timezone`) are replaced as a whole, while `serp_depth` (10, 20, 50, or
+   * 100) and `serp_stop_on_match` each keep their stored value when omitted.
+   * @deprecated Use `client.projects.updateDefaults()`.
+   */
   updateProjectDefaults(
     projectId: ProjectId,
     input: ProjectDefaultsPatch,
@@ -915,9 +932,26 @@ export class BisibilityClient {
 
   /**
    * Research keywords from one seed. This operation requires API write scope because a cache
-   * miss can spend the project's provider budget. Use `estimateOnly` for a free dry run.
+   * miss can spend the project's provider budget. Use `estimateOnly` for a free dry run, which
+   * answers with a cost-only `KeywordResearchEstimate` instead of a `KeywordResearchResult`.
+   * Narrow the union with `isKeywordResearchEstimate` when `estimateOnly` is not a literal.
    * @deprecated Use `client.keywords.research()`.
    */
+  researchKeywords(
+    projectId: ProjectId,
+    options: EstimateKeywordResearchOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<KeywordResearchEstimate>;
+  researchKeywords(
+    projectId: ProjectId,
+    options: LoadKeywordResearchOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<KeywordResearchResult>;
+  researchKeywords(
+    projectId: ProjectId,
+    options: ResearchKeywordsOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<KeywordResearchResponse>;
   researchKeywords(
     projectId: ProjectId,
     options: ResearchKeywordsOptions,
@@ -945,15 +979,31 @@ export class BisibilityClient {
   /**
    * Analyze backlinks. This operation requires API write scope because a cache miss can spend the
    * project's provider budget. Use `estimateOnly` (`estimate_only` on the wire) for a free dry
-   * run.
+   * run, which answers with a cost-only `BacklinksEstimate` instead of a `BacklinksSnapshot`.
+   * Narrow the union with `isBacklinksEstimate` when `estimateOnly` is not a literal.
    * @deprecated Use `client.backlinks.analyze()`.
    */
+  analyzeBacklinks(
+    projectId: ProjectId,
+    options: EstimateBacklinksOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<DataResponse<BacklinksEstimate>>;
+  analyzeBacklinks(
+    projectId: ProjectId,
+    options: LoadBacklinksSnapshotOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<BacklinksSnapshotResponse>;
+  analyzeBacklinks(
+    projectId: ProjectId,
+    options: AnalyzeBacklinksOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<BacklinksResponse>;
   analyzeBacklinks(
     projectId: ProjectId,
     options: AnalyzeBacklinksOptions,
     requestOptions?: RequestOptions,
   ) {
-    return this.request<DataResponse<BacklinksSnapshot>>(
+    return this.request<BacklinksResponse>(
       "GET",
       `/projects/${encodedPathSegment(projectId)}/backlinks`,
       {
@@ -982,7 +1032,7 @@ export class BisibilityClient {
     options: LoadMoreBacklinkRowsOptions,
     requestOptions?: RequestOptions,
   ) {
-    return this.request<DataResponse<BacklinksSnapshot>>(
+    return this.request<BacklinksSnapshotResponse>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/backlinks/rows`,
       {
@@ -1197,7 +1247,11 @@ export class BisibilityClient {
     );
   }
 
-  /** @deprecated Use `client.sitemapMonitors.update()`. */
+  /**
+   * Update a project's sitemap monitor. A project has one monitor and its `monitorId` is the
+   * project ID, so pass the same value for both arguments.
+   * @deprecated Use `client.sitemapMonitors.update()`.
+   */
   updateSitemapMonitor(
     projectId: ProjectId,
     monitorId: ProjectId,
@@ -1622,6 +1676,67 @@ export class BisibilityClient {
     );
   }
 
+  /** Read saved report summaries without starting provider work.
+   * @deprecated Use `client.researchReports.list()`. */
+  listStoredResearchReports(projectId: ProjectId, options?: RequestOptions) {
+    return this.request<StoredResearchReportsResponse>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/research/reports`,
+      options,
+    );
+  }
+  /** Read a saved report. fresh_until, rather than saved_at, determines freshness.
+   * @deprecated Use `client.researchReports.get()`. */
+  getStoredResearchReport<K extends StoredResearchReportKind>(
+    projectId: ProjectId,
+    kind: K,
+    query: StoredResearchReportOptions = {},
+    options?: RequestOptions,
+  ) {
+    return this.request<{ data: StoredResearchReportByKind[K] }>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/research/reports/${encodedPathSegment(kind)}`,
+      {
+        ...options,
+        query: {
+          target: query.target,
+          target_scope: query.targetScope,
+          mode: query.mode,
+          include_subdomains: query.includeSubdomains,
+          seed: query.seed,
+          include_clickstream: query.includeClickstream,
+          result_limit: query.resultLimit,
+          connection_id: query.connectionId,
+          language_code: query.languageCode,
+          location_code: query.locationCode,
+        },
+      },
+    );
+  }
+  /** Own-key and credit budgets are independent, and the response preserves both.
+   * @deprecated Use `client.providers.budgets.list()`. */
+  listProviderBudgets(projectId: ProjectId, options?: RequestOptions) {
+    return this.request<ListResponse<ProviderBudgets>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/provider-budgets`,
+      options,
+    );
+  }
+  /** Omitted fields keep their budget; explicit null clears it.
+   * @deprecated Use `client.providers.budgets.update()`. */
+  updateProviderBudgets(
+    projectId: ProjectId,
+    providerId: string,
+    input: ProviderBudgetsUpdate,
+    options?: RequestOptions,
+  ) {
+    return this.request<ProviderBudgets>(
+      "PATCH",
+      `/projects/${encodedPathSegment(projectId)}/providers/${encodedPathSegment(providerId)}/budgets`,
+      { ...options, body: input },
+    );
+  }
+
   /** @deprecated Use `client.providers.list()`. */
   listProviders(
     projectId: ProjectId,
@@ -1655,34 +1770,38 @@ export class BisibilityClient {
     );
   }
 
-  /** @deprecated Use `client.providers.connect()`. */
-  async connectProvider(
+  /**
+   * Connect a provider. `priority` is an optional integer from 0 to 1000 that the server applies
+   * while saving the connection: `0` promotes the provider and renumbers the fallback chain, and
+   * an omitted priority keeps a reconnected provider's place while a new connection is appended
+   * to the chain. The deprecated `primary: true` input is sent as `priority: 0`.
+   *
+   * Credentials are provider-specific. For Plausible, `credentials.login` is the site domain
+   * configured in Plausible (its site_id, such as `example.com`) and defaults to the project
+   * domain when omitted, while `credentials.api_key` is the Stats API token.
+   * @deprecated Use `client.providers.connect()`.
+   */
+  connectProvider(
     projectId: ProjectId,
     providerId: string,
     input: ConnectProviderInput = {},
     options?: RequestOptions,
   ) {
-    const payload = connectProviderPayload(input);
-    const connection = await this.request<ProviderConnection>(
+    return this.request<ProviderConnection>(
       "POST",
       `/projects/${encodedPathSegment(projectId)}/providers/${encodedPathSegment(
         providerId,
       )}/connect`,
-      { ...options, body: bodyOrUndefined(payload.body) },
-    );
-    if (payload.priority === undefined) return connection;
-
-    // The server derives priority while connecting. Preserve legacy priority and primary
-    // inputs with a follow-up PATCH. If that PATCH fails, leave the connection intact.
-    return this.setProviderPriority(
-      projectId,
-      providerId,
-      payload.priority,
-      withoutIdempotencyKey(options),
+      { ...options, body: bodyOrUndefined(connectProviderPayload(input)) },
     );
   }
 
-  /** @deprecated Use `client.providers.test()`. */
+  /**
+   * Test provider credentials without saving a connection. A successful result carries
+   * `message: "Connected."`, or `"Connected · <detail>."` for analytics providers that
+   * report a detail such as the resolved site.
+   * @deprecated Use `client.providers.test()`.
+   */
   testProviderConnection(
     projectId: ProjectId,
     providerId: string,
@@ -2240,9 +2359,7 @@ export class BisibilityClient {
     if (options.auth !== false) {
       headers.set("Authorization", `Bearer ${this.#authorizationToken}`);
     }
-    if (options.suppressIdempotencyKey) {
-      headers.delete("Idempotency-Key");
-    } else if (options.idempotencyKey) {
+    if (options.idempotencyKey) {
       headers.set("Idempotency-Key", options.idempotencyKey);
     }
     headers.set("X-Bisibility-Client", CLIENT_ID);

@@ -9,6 +9,12 @@ export {
   BisibilityTimeoutError,
   BisibilityResponseError,
 } from "./errors.js";
+export {
+  isBacklinksEstimate,
+  isBacklinksSnapshot,
+  isKeywordResearchEstimate,
+  isKeywordResearchResult,
+} from "./estimates.js";
 export { iterateCursorPagination } from "./pagination.js";
 export type { CursorPageFetcher } from "./pagination.js";
 export type {
@@ -46,8 +52,12 @@ export type {
   AuditId,
   AssignableTeamRole,
   BacklinkRow,
+  BacklinksAnalyzeResult,
+  BacklinksEstimate,
   BacklinksHistoryMonth,
+  BacklinksResponse,
   BacklinksSnapshot,
+  BacklinksSnapshotResponse,
   BacklinksSummary,
   BisibilityClientConfig,
   Capability,
@@ -146,7 +156,9 @@ export type {
   DomainOverviewReport,
   DomainOverviewScope,
   DomainOverviewState,
+  EstimateBacklinksOptions,
   EstimateDomainOverviewOptions,
+  EstimateKeywordResearchOptions,
   ExportRankHistoryCsvOptions,
   ExportRankHistoryJsonOptions,
   FetchLike,
@@ -176,8 +188,11 @@ export type {
   KeywordMetricsRow,
   KeywordMonthlyTrend,
   KeywordResearchConnection,
+  KeywordResearchEstimate,
+  KeywordResearchEstimateSource,
   KeywordResearchMode,
   KeywordResearchResponse,
+  KeywordResearchResult,
   KeywordResearchResultLimit,
   KeywordResearchRow,
   KeywordResearchSource,
@@ -196,11 +211,13 @@ export type {
   ListSignalsOptions,
   ListTrafficSnapshotsOptions,
   LivenessResponse,
+  LoadBacklinksSnapshotOptions,
   LoadDomainOverviewHistoryOptions,
   LoadDomainOverviewKeywordsOptions,
   LoadDomainOverviewPageOptions,
   LoadDomainOverviewPagesOptions,
   LoadDomainOverviewReportOptions,
+  LoadKeywordResearchOptions,
   LoadMoreBacklinkRowsOptions,
   LocationKind,
   LocationSuggestion,
@@ -299,6 +316,7 @@ export type {
   SearchLocationsOptions,
   SearchPerformanceQueryStat,
   SearchPerformanceQueryStatsResponse,
+  SerpDepth,
   Signal,
   SignalId,
   SignalSeverity,
@@ -344,3 +362,5 @@ export type {
 } from "./types.js";
 
 export { BisibilityClient as default } from "./client.js";
+
+export type * from "./reports-budgets.js";

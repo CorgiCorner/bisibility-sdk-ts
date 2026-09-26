@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.14.0 - 2026-09-27
+
+- Added saved research report reads and separate own-key and credit provider budget methods.
+
+- **Breaking (types):** `GET /projects/{project_id}/backlinks` now answers with either a
+  `BacklinksSnapshot` or, for `estimateOnly: true`, a cost-only `BacklinksEstimate`.
+  `backlinks.analyze` returns that discriminated union, `BacklinksSnapshot` no longer carries
+  `estimate` or `estimated_cost_cents`, and `isBacklinksEstimate` / `isBacklinksSnapshot` are
+  exported to narrow it. A literal `estimateOnly` still resolves to a single variant, so calls
+  that pass `estimateOnly: true`, `false`, or nothing need no change.
+- **Breaking (types):** `KeywordResearchResponse` is now
+  `KeywordResearchEstimate | KeywordResearchResult`. The completed shape moved to
+  `KeywordResearchResult` and no longer carries `estimate`; an estimate carries per-source
+  `{ source, cost_cents, cached }` entries and no `rows`, `fetched_at`, `total_count`, or source
+  statuses. `isKeywordResearchEstimate` / `isKeywordResearchResult` are exported to narrow it.
+- **Breaking (types):** `ProjectDefaults["serp_depth"]` is the `SerpDepth` enum (`10`, `20`, `50`,
+  `100`) instead of `number`.
+- Added `serp_depth` to `ProjectDefaultsPatch`. Omitting it keeps the stored depth, as
+  `serp_stop_on_match` already did, while the schedule fields are still replaced as a whole.
+- `connectProvider` now sends `priority` in the connect request instead of promoting the
+  connection with a follow-up `PATCH`. Priority `0` promotes the provider and renumbers the
+  fallback chain server-side, an omitted priority keeps a reconnected provider's place, and the
+  deprecated `primary: true` input is still sent as `priority: 0`.
+- Documented Plausible credentials (`credentials.login` is the site domain and defaults to the
+  project domain, `credentials.api_key` is the Stats API token) and the successful provider test
+  message (`"Connected."`, or `"Connected · <detail>."` for analytics providers).
+- Documented that a project's sitemap monitor ID is its project ID.
+
 ## 0.13.0 - 2026-09-20
 
 - Add `maxCostCents` to `listRankedKeywordSuggestions` options and `max_cost_cents` to the rank-check

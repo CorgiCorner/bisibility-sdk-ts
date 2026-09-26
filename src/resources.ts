@@ -227,7 +227,15 @@ export interface ClientResourceNamespaces {
       ) => ReturnType<BisibilityClient["revokeTeamInviteById"]>;
     }>;
   }>;
+  readonly researchReports: Readonly<{
+    list: BisibilityClient["listStoredResearchReports"];
+    get: BisibilityClient["getStoredResearchReport"];
+  }>;
   readonly providers: Readonly<{
+    budgets: Readonly<{
+      list: BisibilityClient["listProviderBudgets"];
+      update: BisibilityClient["updateProviderBudgets"];
+    }>;
     list: BisibilityClient["listProviders"];
     iterate: BisibilityClient["iterateProviders"];
     connect: BisibilityClient["connectProvider"];
@@ -437,7 +445,15 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
       },
     }),
   });
+  const researchReports = Object.freeze({
+    list: delegate(client, "listStoredResearchReports"),
+    get: delegate(client, "getStoredResearchReport"),
+  });
   const providers = Object.freeze({
+    budgets: Object.freeze({
+      list: delegate(client, "listProviderBudgets"),
+      update: delegate(client, "updateProviderBudgets"),
+    }),
     list: delegate(client, "listProviders"),
     iterate: delegate(client, "iterateProviders"),
     connect: delegate(client, "connectProvider"),
@@ -511,6 +527,7 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     notificationSettings,
     team,
     providers,
+    researchReports,
     savedViews,
     competitors,
     imports,

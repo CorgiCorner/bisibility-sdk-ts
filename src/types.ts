@@ -85,6 +85,9 @@ export interface UpdateProjectInput {
   name?: string;
 }
 
+/** Number of SERP results scanned per rank check. */
+export type SerpDepth = 10 | 20 | 50 | 100;
+
 export interface ProjectDefaults {
   city: string | null;
   country: string;
@@ -96,13 +99,18 @@ export interface ProjectDefaults {
   location_key: string;
   next_check_at: string | null;
   project_id: ProjectId;
-  serp_depth: number;
+  serp_depth: SerpDepth;
   serp_stop_on_match: boolean;
   source: "derived" | "explicit" | "fallback";
   timezone: string;
   updated_at: string | null;
 }
 
+/**
+ * Project default patch. The schedule fields (`frequency`, `cron_expression`, `jitter_minutes`,
+ * `timezone`) are replaced as a whole. `serp_depth` and `serp_stop_on_match` are independent of
+ * the schedule: omitting either keeps its stored value.
+ */
 export interface ProjectDefaultsPatch {
   city?: string | null;
   country?: string;
@@ -111,6 +119,9 @@ export interface ProjectDefaultsPatch {
   frequency?: RankCheckFrequency;
   jitter_minutes?: number;
   location_key?: string;
+  /** Default SERP depth for new rank checks. Omit to keep the stored depth. */
+  serp_depth?: SerpDepth;
+  /** Omit to keep the stored value. */
   serp_stop_on_match?: boolean;
   timezone?: string;
 }
@@ -575,12 +586,15 @@ export interface BacklinkRow {
   target_url: string;
 }
 
+/**
+ * Paid (or cache-served) backlink profile. A snapshot always carries report fields and never the
+ * `estimate` discriminant.
+ */
 export interface BacklinksSnapshot {
   cached: boolean;
   cached_until: string;
   cost_cents: number;
-  estimate?: boolean;
-  estimated_cost_cents?: number;
+  estimate?: undefined;
   fetched_at: string;
   fetched_row_count: number;
   history: BacklinksHistoryMonth[];
@@ -594,11 +608,39 @@ export interface BacklinksSnapshot {
 }
 
 /**
+ * Free dry run returned for `estimateOnly: true`. It carries cost facts only and never `summary`,
+ * `history`, `rows`, `fetched_at`, `fetched_row_count`, or `total_rows_available`, so it cannot be
+ * mistaken for an empty backlink profile. Narrow with `isBacklinksEstimate`.
+ */
+export interface BacklinksEstimate {
+  /** An unexpired snapshot exists, so the paid call would cost nothing. */
+  cached: boolean;
+  /** Expiry of that snapshot; null when there is none. */
+  cached_until: string | null;
+  /** 0 when cached, otherwise equal to `estimated_cost_cents`. */
+  cost_cents: number;
+  estimate: true;
+  estimated_cost_cents: number;
+  include_subdomains: boolean;
+  provider: string;
+  target: string;
+  target_scope: "site" | "page";
+}
+
+/** `GET /projects/{project_id}/backlinks` returns either variant, discriminated on `estimate`. */
+export type BacklinksAnalyzeResult = BacklinksEstimate | BacklinksSnapshot;
+
+export type BacklinksResponse = DataResponse<BacklinksAnalyzeResult>;
+
+export type BacklinksSnapshotResponse = DataResponse<BacklinksSnapshot>;
+
+/**
  * Options for analyzing backlinks. This operation requires API write scope because a cache miss
  * can spend the project's provider budget. Use `estimateOnly` (`estimate_only` on the wire) for a
  * free dry run.
  */
 export interface AnalyzeBacklinksOptions {
+  /** `true` returns a free cost-only `BacklinksEstimate` instead of a snapshot. */
   estimateOnly?: boolean;
   fresh?: boolean;
   includeSubdomains?: boolean;
@@ -607,6 +649,16 @@ export interface AnalyzeBacklinksOptions {
   resultLimit?: 100 | 300 | 500 | 1000;
   target: string;
   targetScope?: "site" | "page";
+}
+
+/** Backlinks options that always resolve to a free `BacklinksEstimate`. */
+export interface EstimateBacklinksOptions extends AnalyzeBacklinksOptions {
+  estimateOnly: true;
+}
+
+/** Backlinks options that always resolve to a paid or cached `BacklinksSnapshot`. */
+export interface LoadBacklinksSnapshotOptions extends AnalyzeBacklinksOptions {
+  estimateOnly?: false;
 }
 
 /**
@@ -865,11 +917,15 @@ export interface KeywordResearchSourceDiagnostic {
   status: KeywordResearchSourceStatus;
 }
 
-export interface KeywordResearchResponse {
+/**
+ * Completed keyword research. A result always carries rows and per-source statuses and never the
+ * `estimate` discriminant.
+ */
+export interface KeywordResearchResult {
   cached: boolean;
   connections: KeywordResearchConnection[];
   cost_cents: number;
-  estimate?: boolean;
+  estimate?: undefined;
   fetched_at: string;
   provider: string;
   rows: KeywordResearchRow[];
@@ -877,8 +933,37 @@ export interface KeywordResearchResponse {
   total_count: number;
 }
 
+/** Per-source cost facts on a keyword research dry run. It carries no status, reason, or count. */
+export interface KeywordResearchEstimateSource {
+  cached: boolean;
+  cost_cents: number;
+  source: KeywordResearchSource;
+}
+
+/**
+ * Free dry run returned for `estimateOnly: true`. It carries per-source cost facts only and never
+ * `rows`, `fetched_at`, `total_count`, or source statuses, so it cannot be mistaken for an empty
+ * result. Narrow with `isKeywordResearchEstimate`.
+ */
+export interface KeywordResearchEstimate {
+  /** Every planned source is cached. */
+  cached: boolean;
+  connections: KeywordResearchConnection[];
+  cost_cents: number;
+  estimate: true;
+  provider: string;
+  sources: KeywordResearchEstimateSource[];
+}
+
+/**
+ * `GET /projects/{project_id}/keyword-research` returns either variant, discriminated on
+ * `estimate`.
+ */
+export type KeywordResearchResponse = KeywordResearchEstimate | KeywordResearchResult;
+
 export interface ResearchKeywordsOptions {
   connectionId?: ConnectionId;
+  /** `true` returns a free cost-only `KeywordResearchEstimate` instead of a result. */
   estimateOnly?: boolean;
   fresh?: boolean;
   includeClickstream?: boolean;
@@ -886,6 +971,16 @@ export interface ResearchKeywordsOptions {
   mode?: KeywordResearchMode;
   resultLimit?: KeywordResearchResultLimit;
   seed: string;
+}
+
+/** Keyword research options that always resolve to a free `KeywordResearchEstimate`. */
+export interface EstimateKeywordResearchOptions extends ResearchKeywordsOptions {
+  estimateOnly: true;
+}
+
+/** Keyword research options that always resolve to a paid or cached `KeywordResearchResult`. */
+export interface LoadKeywordResearchOptions extends ResearchKeywordsOptions {
+  estimateOnly?: false;
 }
 
 export interface GetKeywordMetricsInput {
