@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> **Version:** v0.13.0.
+> Current versions are listed on [npm](https://www.npmjs.com/package/@bisibility/sdk).
 
 TypeScript SDK for the Bisibility REST API.
 
