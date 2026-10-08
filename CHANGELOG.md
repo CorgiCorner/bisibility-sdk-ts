@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0 - 2026-10-07
+
+- Add typed project context, agent report, AI visibility, prompt comparison, and site audit operations.
+- Wait for terminal queued rank checks and preserve per-attempt timeouts with caller cancellation signals.
+- Validate successful JSON response envelopes and required value types for every SDK operation.
+- Support cloud-import package versions 6 and 7, preserve ranking normalization metadata and
+  canonical location keys, and decode server-advertised compatibility versions independently.
+- Include `NOTICE` in the npm package and update the product and request-source documentation.
+
 ## 0.14.1 - 2026-09-27
 
 - Replaced the stale README version label with a link to the current package registry release.

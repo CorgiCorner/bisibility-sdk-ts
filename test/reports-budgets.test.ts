@@ -2,8 +2,31 @@ import { readFileSync } from "node:fs";
 import { expect, it, vi } from "vitest";
 import { BisibilityClient } from "../src/client.js";
 const project = "prj_a00000000000000000000000";
-function setup(reply: unknown = { data: [] }, status = 200) {
-  const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json(reply, { status }));
+function setup(reply?: unknown, status = 200) {
+  const fetch = vi.fn<typeof globalThis.fetch>(async (url) => {
+    let body = reply;
+    if (body === undefined) {
+      if (String(url).endsWith("/research/reports"))
+        body = { data: [], meta: { freshness_days: 7 } };
+      else if (String(url).includes("/research/reports/backlinks")) {
+        const fixtures = JSON.parse(
+          readFileSync(new URL("./fixtures/stored-reports.json", import.meta.url), "utf8"),
+        );
+        body = { data: fixtures.backlinks };
+      } else if (String(url).endsWith("/provider-budgets"))
+        body = { data: [], meta: { next_cursor: null } };
+      else
+        body = {
+          connection_id: "conn_a00000000000000000000000",
+          credential_source: "own",
+          provider: "dataforseo",
+          source: "connection",
+          own: { app: null, programmatic: null },
+          credits: { app: null, programmatic: null },
+        };
+    }
+    return Response.json(body, { status });
+  });
   const client = new BisibilityClient({
     apiKey: "bsb_key_test_x",
     baseUrl: "https://api.example.com/api/v1",

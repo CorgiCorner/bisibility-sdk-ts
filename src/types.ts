@@ -1786,7 +1786,7 @@ export interface MigrationTokenListResponse extends ListResponse<ActiveMigration
   meta: MigrationTokenListMeta;
 }
 
-export type CloudImportSchemaVersion = 5;
+export type CloudImportSchemaVersion = 5 | 6 | 7;
 
 export type CloudImportLocation =
   | "Australia"
@@ -1820,21 +1820,25 @@ export type CloudImportLocation =
 export interface CloudImportCompatibility {
   app_version: string;
   latest_migration: string | null;
-  schema_versions_supported: CloudImportSchemaVersion[];
+  schema_versions_supported: number[];
 }
 
 export interface CloudImportRankingHistory {
   checkedAt: string;
-  position?: number | null;
-  previousPosition?: number | null;
-  rankingUrl?: string | null;
+  normalizationVersion: "v1" | "v2";
+  position: number | null;
+  previousPosition: number | null;
+  provider: string;
+  rankingUrl: string | null;
+  requestedDepth: SerpDepth | null;
 }
 
 export interface CloudImportKeyword {
   device: Device;
   id: KeywordId;
   keyword: string;
-  location: CloudImportLocation;
+  location: string;
+  location_key?: string;
   rankingHistory?: CloudImportRankingHistory[];
   tags?: string[];
   target_url?: string | null;
@@ -1873,7 +1877,8 @@ export interface CloudImportKeywordAlertTarget {
   device?: Device;
   keyword?: string;
   keyword_id: KeywordId;
-  location?: CloudImportLocation;
+  location?: string;
+  location_key?: string;
   type: "keyword";
 }
 
@@ -1894,6 +1899,7 @@ export interface CloudImportAlertRule {
   id: AlertRuleId;
   name: string;
   serp_feature?: string | null;
+  severity?: "info" | "warning" | "urgent";
   target_type?: CloudImportAlertTargetType;
   targets?: CloudImportAlertRuleTarget[];
   threshold_position?: number | null;
@@ -1914,17 +1920,37 @@ export interface CloudImportNotificationPreference {
 
 export type CloudImportScope = "current" | "history";
 
-export interface CloudImportPackage {
+interface CloudImportPackageSections {
   alert_rules: CloudImportAlertRule[];
   competitors: CloudImportCompetitor[];
   exported_at?: string;
-  keywords: CloudImportKeyword[];
   notification_preferences: CloudImportNotificationPreference[];
   project_id: ProjectId;
   saved_views: CloudImportSavedView[];
   scope?: CloudImportScope;
-  version: CloudImportSchemaVersion;
 }
+
+/** Legacy version 5 packages can only carry metadata, without ambiguous rank history. */
+export type CloudImportLegacyKeyword = Omit<
+  CloudImportKeyword,
+  "location" | "location_key" | "rankingHistory"
+> & {
+  location: CloudImportLocation;
+  rankingHistory?: [];
+};
+
+export type CloudImportPackage = CloudImportPackageSections &
+  (
+    | { version: 5; keywords: CloudImportLegacyKeyword[] }
+    | {
+        version: 6;
+        keywords: (Omit<CloudImportKeyword, "location_key"> & {
+          location: CloudImportLocation;
+          location_key?: never;
+        })[];
+      }
+    | { version: 7; keywords: (CloudImportKeyword & { location_key: string })[] }
+  );
 
 export type CloudImportCounts = Record<string, number>;
 
@@ -1941,7 +1967,7 @@ export interface CloudImportSessionCreate {
     keywords?: number;
     rank_checks?: number;
   };
-  version: CloudImportSchemaVersion;
+  version: 6 | 7;
 }
 
 export interface CloudImportSessionCreateResponse {
@@ -1956,7 +1982,8 @@ export interface CloudImportSessionCreateResponse {
 
 export interface CloudImportSourceKeyword {
   device: Device;
-  location: CloudImportLocation;
+  location: string;
+  location_key?: string;
   text: string;
 }
 

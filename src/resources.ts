@@ -66,6 +66,27 @@ function compatibilityMethods(client: BisibilityClient) {
 }
 
 export interface ClientResourceNamespaces {
+  readonly projectContext: Readonly<{
+    get: BisibilityClient["getProjectContext"];
+    update: BisibilityClient["updateProjectContext"];
+  }>;
+  readonly agentReports: Readonly<{
+    list: BisibilityClient["listAgentReports"];
+    create: BisibilityClient["createAgentReport"];
+    get: BisibilityClient["getAgentReport"];
+  }>;
+  readonly aiVisibility: Readonly<{
+    analyze: BisibilityClient["analyzeAiVisibility"];
+  }>;
+  readonly promptExplorer: Readonly<{
+    compare: BisibilityClient["compareAiPrompts"];
+  }>;
+  readonly siteAudits: Readonly<{
+    list: BisibilityClient["listSiteAudits"];
+    run: BisibilityClient["runSiteAudit"];
+    get: BisibilityClient["getSiteAudit"];
+  }>;
+
   readonly system: Readonly<{
     getHealth: BisibilityClient["getHealth"];
     getLiveness: BisibilityClient["getLiveness"];
@@ -445,6 +466,26 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
       },
     }),
   });
+  const projectContext = Object.freeze({
+    get: delegate(client, "getProjectContext"),
+    update: delegate(client, "updateProjectContext"),
+  });
+  const agentReports = Object.freeze({
+    list: delegate(client, "listAgentReports"),
+    create: delegate(client, "createAgentReport"),
+    get: delegate(client, "getAgentReport"),
+  });
+  const aiVisibility = Object.freeze({
+    analyze: delegate(client, "analyzeAiVisibility"),
+  });
+  const promptExplorer = Object.freeze({
+    compare: delegate(client, "compareAiPrompts"),
+  });
+  const siteAudits = Object.freeze({
+    list: delegate(client, "listSiteAudits"),
+    run: delegate(client, "runSiteAudit"),
+    get: delegate(client, "getSiteAudit"),
+  });
   const researchReports = Object.freeze({
     list: delegate(client, "listStoredResearchReports"),
     get: delegate(client, "getStoredResearchReport"),
@@ -528,6 +569,12 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     team,
     providers,
     researchReports,
+    projectContext,
+    agentReports,
+    aiVisibility,
+    promptExplorer,
+    siteAudits,
+
     savedViews,
     competitors,
     imports,

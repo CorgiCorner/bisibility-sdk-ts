@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*.*.*-rc.*"]
   pull_request:
 
 permissions:
@@ -10,38 +11,24 @@ permissions:
 
 jobs:
   ci:
+    if: github.repository != 'CorgiCorner/bisibility-sdk-ts' || github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     runs-on: ${{ github.repository != 'CorgiCorner/bisibility-sdk-ts' && vars.CI_USE_DEPOT == 'true' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
     timeout-minutes: 10
-    strategy:
-      matrix:
-        include:
-          - node-version: 18
-            development-runtime: false
-          - node-version: 20
-            development-runtime: false
-          - node-version: 22.23.1
-            development-runtime: true
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Use the repository npm version
         run: (cd "$RUNNER_TEMP" && npm install --global npm@10.9.3)
 
       - name: Install dependencies
-        run: |
-          if [ "${{ matrix.development-runtime }}" = "true" ]; then
-            npm ci
-          else
-            npm ci --force
-          fi
+        run: npm ci
 
       - name: Validate the development toolchain
-        if: matrix.development-runtime
         run: npm run check:node && npm run lint && npm run typecheck
 
       - name: Test with coverage
@@ -51,16 +38,35 @@ jobs:
           curl --fail --location --silent --show-error \
             https://raw.githubusercontent.com/CorgiCorner/bisibility/main/docs/openapi.snapshot.json \
             --output "$BISIBILITY_OPENAPI_PATH"
-          if [ "${{ matrix.development-runtime }}" = "true" ]; then
-            npm test
-          else
-            npm --force test
-          fi
+          npm test
 
-      - name: Build package
-        run: |
-          if [ "${{ matrix.development-runtime }}" = "true" ]; then
-            npm run build
-          else
-            npm --force run build
-          fi
+      - name: Build package and test its runtime
+        run: npm run build && npm run test:runtime
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sdk-runtime-package
+          path: |
+            dist/
+            package.json
+            test/runtime-compatibility.test.mjs
+
+  runtime-compatibility:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sdk-runtime-package
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
+
+      - name: Test the built SDK without development dependencies
+        run: node --test test/runtime-compatibility.test.mjs

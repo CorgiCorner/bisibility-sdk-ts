@@ -7,7 +7,26 @@ import type {
   PlanCostEstimate,
 } from "../src/index.js";
 
-function harness(data: unknown = {}) {
+const baseEstimate: PlanCostEstimate = {
+  billing_units_per_check: 10,
+  checks_per_run: 5,
+  depth: 100,
+  effective_cost_per_check_cents: null,
+  exceeds_largest_plan: false,
+  exceeds_selected_plan: false,
+  monthly_billing_units: null,
+  monthly_checks: null,
+  monthly_cost_cents: null,
+  monthly_cost_usd: null,
+  pricing_model: "plan",
+  provider_id: "serpapi",
+  rate_checked_at: "2026-10-07",
+  rate_source_url: "https://pricing.example.com/plans",
+  result_pages_per_run: 50,
+  runs_per_month: null,
+};
+
+function harness(data: Partial<PlanCostEstimate> = {}) {
   const requests: Array<{ url: URL; headers: Headers }> = [];
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
     const url = new URL(String(input));
@@ -15,7 +34,7 @@ function harness(data: unknown = {}) {
       return Response.json({ apiVersions: ["v1"], data: [] });
     }
     requests.push({ headers: new Headers(init?.headers), url });
-    return Response.json({ data });
+    return Response.json({ data: { ...baseEstimate, ...data } });
   });
   return {
     client: new BisibilityClient({ baseUrl: "https://api.example.com/api/v1", fetch }),
@@ -57,7 +76,7 @@ describe("depth-aware cost estimates", () => {
     async (frequency) => {
       const data = { monthly_checks: 0, monthly_cost_cents: 0, runs_per_month: 0 };
       const { client, request } = harness(data);
-      expect((await client.getCostEstimate({ frequency, keywords: 5 })).data).toEqual(data);
+      expect((await client.getCostEstimate({ frequency, keywords: 5 })).data).toMatchObject(data);
       expect(request().url.searchParams.get("frequency")).toBe(frequency);
       expect(request().url.searchParams.has("cron_expression")).toBe(false);
       expect(request().url.searchParams.has("depth")).toBe(false);
@@ -78,7 +97,7 @@ describe("depth-aware cost estimates", () => {
       const { client, request } = harness(data);
       const options: GetCostEstimateOptions = { frequency: "custom_cron", keywords: 5 };
       if (cron !== undefined) options.cron_expression = cron;
-      expect((await client.pricing.estimate(options)).data).toEqual(data);
+      expect((await client.pricing.estimate(options)).data).toMatchObject(data);
       expect(request().url.searchParams.get("cron_expression")).toBe(cron ?? null);
     },
   );
@@ -121,7 +140,7 @@ describe("depth-aware cost estimates", () => {
       keywords: 5,
       provider: "serpapi",
     });
-    expect(result.data).toEqual(data);
+    expect(result.data).toMatchObject(data);
     expect(result.data).not.toHaveProperty("selected_plan");
   });
 });

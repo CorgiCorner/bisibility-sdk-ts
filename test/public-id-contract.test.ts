@@ -38,6 +38,7 @@ const ids = Object.fromEntries(PUBLIC_ID_PREFIXES.map((prefix) => [prefix, id(pr
 describe("public ID registry", () => {
   it("defines the complete canonical resource registry", () => {
     expect(PUBLIC_ID_PREFIXES).toEqual([
+      "agr",
       "al",
       "alr",
       "audit",
@@ -179,7 +180,7 @@ describe("public ID request contract", () => {
       }),
     ).toThrow(publicIdExpectation("conn"));
     expect(() => validatePublicIdRequest("/cloud/import", { body: { version: 4 } })).toThrow(
-      "Cloud import payload version must be 5.",
+      "Cloud import payload version must be 5, 6, or 7.",
     );
     expect(() =>
       validatePublicIdRequest(`/cloud/import/sessions/${ids.imp}/chunks/0`, {

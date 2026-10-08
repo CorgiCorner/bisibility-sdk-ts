@@ -21,6 +21,7 @@ import type {
   BacklinksEstimate,
   BacklinksResponse,
   BacklinksSnapshot,
+  BacklinksSnapshotResponse,
   Capability,
   CloudImportChunkResponse,
   CloudImportCompatibility,
@@ -1367,12 +1368,16 @@ describe("BisibilityClient protected resources", () => {
   it("preserves an explicit content type and forwards abort signals", async () => {
     const signal = new AbortController().signal;
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(apiKeyResource({ id: "key_y00000000000000000000000", name: "CI" })),
+      jsonResponse({
+        ...apiKeyResource({ id: "key_y00000000000000000000000", name: "CI" }),
+        masked_value: "bsb_key_test_...",
+        token: "bsb_key_test_x",
+      }),
     );
 
     await client.createApiKey(
       { name: "CI" },
-      { headers: { "Content-Type": "application/vnd.bisibility+json" }, signal },
+      { headers: { "Content-Type": "application/vnd.bisibility+json" }, signal, timeout: null },
     );
 
     const call = lastCall(fetchMock);
@@ -1591,7 +1596,11 @@ describe("BisibilityClient protected resources", () => {
   });
 
   it("analyzes backlinks with camelCase options mapped to snake_case query parameters", async () => {
-    const body = { data: { target: "example.com" } };
+    const body: BacklinksResponse = {
+      data: JSON.parse(
+        readFileSync(new URL("./fixtures/stored-reports.json", import.meta.url), "utf8"),
+      ).backlinks,
+    };
     fetchMock.mockResolvedValueOnce(jsonResponse(body));
 
     await expect(
@@ -1714,7 +1723,11 @@ describe("BisibilityClient protected resources", () => {
   });
 
   it("omits unset optional backlinks query parameters", async () => {
-    const body = { data: { target: "example.com" } };
+    const body: BacklinksResponse = {
+      data: JSON.parse(
+        readFileSync(new URL("./fixtures/stored-reports.json", import.meta.url), "utf8"),
+      ).backlinks,
+    };
     fetchMock.mockResolvedValueOnce(jsonResponse(body));
 
     await expect(
@@ -1730,7 +1743,11 @@ describe("BisibilityClient protected resources", () => {
   });
 
   it("loads more backlink rows with a snake_case JSON body", async () => {
-    const body = { data: { rows: [] } };
+    const body: BacklinksSnapshotResponse = {
+      data: JSON.parse(
+        readFileSync(new URL("./fixtures/stored-reports.json", import.meta.url), "utf8"),
+      ).backlinks,
+    };
     fetchMock.mockResolvedValueOnce(jsonResponse(body));
 
     await expect(
@@ -2525,6 +2542,25 @@ describe("BisibilityClient protected resources", () => {
       }),
     ).resolves.toEqual(finished);
   });
+
+  it.each(["completed", "failed"] as const)(
+    "waits through running history until the matching run is %s",
+    async (status) => {
+      const runId = "rcr_c00000000000000000000000";
+      const finished = rankCheck({ run_id: runId, status });
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse({ id: runId, status: "queued" }, { status: 202 }))
+        .mockResolvedValueOnce(
+          jsonResponse(list([rankCheck({ run_id: runId, status: "running" })])),
+        )
+        .mockResolvedValueOnce(jsonResponse(list([finished])));
+
+      await expect(
+        client.runRankCheckAndWait("kw_b00000000000000000000000", undefined, { pollIntervalMs: 1 }),
+      ).resolves.toEqual(finished);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    },
+  );
 
   it("gives up on a queued run that never produces a check", async () => {
     fetchMock
@@ -3585,7 +3621,7 @@ describe("BisibilityClient protected resources", () => {
         project_id: "prj_r00000000000000000000000",
         saved_views: [],
         scope: "current",
-        version: 5,
+        version: 6,
       }),
     ).resolves.toEqual(finalized);
 
@@ -3610,7 +3646,7 @@ describe("BisibilityClient protected resources", () => {
       project_id: "prj_r00000000000000000000000",
       saved_views: [],
       scope: "current",
-      version: 5,
+      version: 6,
     });
   });
 
@@ -3641,7 +3677,7 @@ describe("BisibilityClient protected resources", () => {
         chunk_count: 2,
         source_project_id: "prj_s00000000000000000000000",
         totals: { keywords: 3, rank_checks: 0 },
-        version: 5,
+        version: 6,
       }),
     ).resolves.toEqual(created);
 

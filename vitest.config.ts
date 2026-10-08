@@ -3,7 +3,6 @@ import { configDefaults, defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     coverage: {
-      all: true,
       exclude: ["src/types.ts"],
       include: ["src/**/*.ts"],
       provider: "v8",
@@ -17,7 +16,11 @@ export default defineConfig({
       },
     },
     environment: "node",
-    exclude: [...configDefaults.exclude, "test/integration/**"],
+    exclude: [
+      ...configDefaults.exclude,
+      "test/integration/**",
+      "test/runtime-compatibility.test.mjs",
+    ],
     globals: false,
   },
 });

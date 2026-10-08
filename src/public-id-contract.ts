@@ -133,7 +133,7 @@ function assertSchemaObject(value: unknown, label: string, properties: readonly 
   if (!input) throw new TypeError(`${label} must be an object.`);
   for (const key of Object.keys(input)) {
     if (!properties.includes(key)) {
-      throw new TypeError(`${label}.${key} is not part of the v5 cloud import schema.`);
+      throw new TypeError(`${label}.${key} is not part of the cloud import schema.`);
     }
   }
   return input;
@@ -227,35 +227,77 @@ function assertCloudImportDateTime(value: unknown, label: string) {
 function assertCloudImportRankingHistory(value: unknown, label: string) {
   const history = assertSchemaObject(value, label, [
     "checkedAt",
+    "normalizationVersion",
     "position",
     "previousPosition",
+    "provider",
     "rankingUrl",
+    "requestedDepth",
   ]);
   assertCloudImportDateTime(required(history, "checkedAt", label), `${label}.checkedAt`);
-  if (has(history, "position"))
-    assertNullablePositiveInteger(history.position, `${label}.position`);
-  if (has(history, "previousPosition")) {
-    assertNullablePositiveInteger(history.previousPosition, `${label}.previousPosition`);
+  assertEnum(
+    required(history, "normalizationVersion", label),
+    ["v1", "v2"],
+    `${label}.normalizationVersion`,
+  );
+  assertNullablePositiveInteger(required(history, "position", label), `${label}.position`);
+  assertNullablePositiveInteger(
+    required(history, "previousPosition", label),
+    `${label}.previousPosition`,
+  );
+  assertString(required(history, "provider", label), `${label}.provider`, 1, 120);
+  const rankingUrl = required(history, "rankingUrl", label);
+  assertNullableString(rankingUrl, `${label}.rankingUrl`, 0, 500);
+  if (typeof rankingUrl === "string" && !rankingUrl.startsWith("/") && !URL.canParse(rankingUrl)) {
+    throw new TypeError(`${label}.rankingUrl must be an absolute URL or path.`);
   }
-  if (has(history, "rankingUrl"))
-    assertNullableString(history.rankingUrl, `${label}.rankingUrl`, 0, 500);
+  const depth = required(history, "requestedDepth", label);
+  if (depth !== null && ![10, 20, 50, 100].includes(depth as number)) {
+    throw new TypeError(`${label}.requestedDepth must be null or a supported SERP depth.`);
+  }
 }
 
-function assertCloudImportKeyword(value: unknown, label: string) {
+function assertCloudImportLocationIdentity(value: JsonObject, label: string, version?: number) {
+  const key = value.location_key;
+  if (version === 7 && key === undefined)
+    throw new TypeError(`${label}.location_key is required in version 7.`);
+  if ((version === 5 || version === 6) && key !== undefined)
+    throw new TypeError(`${label}.location_key requires version 7.`);
+  if (key !== undefined) {
+    // The server resolves the country, city, region, and language against its live catalog.
+    assertString(key, `${label}.location_key`, 2, 240);
+    if (!/^[A-Z]{2}(?:\/[^/@]+){0,2}(?:@[a-zA-Z-]+)?$/.test(key)) {
+      throw new TypeError(`${label}.location_key must be a canonical location key.`);
+    }
+    if (value.location !== undefined) assertString(value.location, `${label}.location`, 1, 240);
+  } else if (value.location !== undefined) {
+    assertCloudImportLocation(value.location, `${label}.location`);
+  }
+}
+
+function assertCloudImportKeyword(value: unknown, label: string, version?: number) {
   const keyword = assertSchemaObject(value, label, [
     "device",
     "id",
     "keyword",
     "location",
     "rankingHistory",
+    "location_key",
     "tags",
     "target_url",
   ]);
   assertId(required(keyword, "id", label), "kw", `${label}.id`);
   assertString(required(keyword, "keyword", label), `${label}.keyword`, 1, 180);
   assertCloudImportDevice(required(keyword, "device", label), `${label}.device`);
-  assertCloudImportLocation(required(keyword, "location", label), `${label}.location`);
+  required(keyword, "location", label);
+  assertCloudImportLocationIdentity(keyword, label, version);
   if (has(keyword, "rankingHistory")) {
+    if (
+      version === 5 &&
+      assertArray(keyword.rankingHistory, `${label}.rankingHistory`).length > 0
+    ) {
+      throw new TypeError("Version 5 ranking history is ambiguous; re-export as version 6 or 7.");
+    }
     for (const [index, entry] of assertArray(
       keyword.rankingHistory,
       `${label}.rankingHistory`,
@@ -299,6 +341,7 @@ function assertCloudImportAlertRuleTarget(value: unknown, label: string) {
       "keyword",
       "keyword_id",
       "location",
+      "location_key",
       "type",
     ]);
     assertId(required(keywordTarget, "keyword_id", label), "kw", `${label}.keyword_id`);
@@ -306,8 +349,7 @@ function assertCloudImportAlertRuleTarget(value: unknown, label: string) {
       assertCloudImportDevice(keywordTarget.device, `${label}.device`);
     if (has(keywordTarget, "keyword"))
       assertString(keywordTarget.keyword, `${label}.keyword`, 1, 180);
-    if (has(keywordTarget, "location"))
-      assertCloudImportLocation(keywordTarget.location, `${label}.location`);
+    assertCloudImportLocationIdentity(keywordTarget, label);
     return;
   }
   if (type === "tag") {
@@ -329,11 +371,14 @@ function assertCloudImportAlertRule(value: unknown, label: string) {
     "id",
     "name",
     "serp_feature",
+    "severity",
     "target_type",
     "targets",
     "threshold_position",
     "top_n",
   ]);
+  if (has(rule, "severity"))
+    assertEnum(rule.severity, ["info", "warning", "urgent"], `${label}.severity`);
   assertId(required(rule, "id", label), "alr", `${label}.id`);
   assertString(required(rule, "name", label), `${label}.name`, 1, 120);
   if (has(rule, "change_pct")) assertNullableNumber(rule.change_pct, `${label}.change_pct`);
@@ -409,8 +454,9 @@ function assertCloudImportPackage(input: unknown) {
     "scope",
     "version",
   ]);
-  if (required(payload, "version", "Cloud import payload") !== 5) {
-    throw new TypeError("Cloud import payload version must be 5.");
+  const version = required(payload, "version", "Cloud import payload");
+  if (![5, 6, 7].includes(version as number)) {
+    throw new TypeError("Cloud import payload version must be 5, 6, or 7.");
   }
   assertId(required(payload, "project_id", "Cloud import payload"), "prj", "project_id");
   for (const [index, keyword] of assertArray(
@@ -418,7 +464,7 @@ function assertCloudImportPackage(input: unknown) {
     "keywords",
     500,
   ).entries()) {
-    assertCloudImportKeyword(keyword, `keywords[${index}]`);
+    assertCloudImportKeyword(keyword, `keywords[${index}]`, version as number);
   }
   for (const [index, rule] of assertArray(
     required(payload, "alert_rules", "Cloud import payload"),
@@ -459,8 +505,8 @@ function assertCloudImportSessionCreate(input: unknown) {
     "totals",
     "version",
   ]);
-  if (required(session, "version", "Cloud import session") !== 5) {
-    throw new TypeError("Cloud import session version must be 5.");
+  if (![6, 7].includes(required(session, "version", "Cloud import session") as number)) {
+    throw new TypeError("Cloud import session version must be 6 or 7.");
   }
   assertInteger(required(session, "chunk_count", "Cloud import session"), "chunk_count", 1, 500);
   assertId(
@@ -476,9 +522,10 @@ function assertCloudImportSessionCreate(input: unknown) {
 }
 
 function assertCloudImportSourceKeyword(value: unknown, label: string) {
-  const keyword = assertSchemaObject(value, label, ["device", "location", "text"]);
+  const keyword = assertSchemaObject(value, label, ["device", "location", "location_key", "text"]);
   assertCloudImportDevice(required(keyword, "device", label), `${label}.device`);
-  assertCloudImportLocation(required(keyword, "location", label), `${label}.location`);
+  required(keyword, "location", label);
+  assertCloudImportLocationIdentity(keyword, label);
   assertString(required(keyword, "text", label), `${label}.text`);
 }
 
@@ -589,7 +636,7 @@ function assertCloudImportCompatibilityResponse(value: unknown) {
     "schema_versions_supported",
   );
   for (const [index, version] of versions.entries()) {
-    if (version !== 5) throw new TypeError(`schema_versions_supported[${index}] must be 5.`);
+    assertInteger(version, `schema_versions_supported[${index}]`, 1);
   }
   assertString(
     required(response, "app_version", "Cloud import compatibility response"),
@@ -679,6 +726,10 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
   }
   if (first === "cloud" && second === "import" && third === "sessions" && fourth) {
     assertId(fourth, "imp", "sessionId");
+  }
+
+  if (first === "projects" && (third === "agent-reports" || third === "site-audits") && fourth) {
+    assertId(fourth, "agr", "reportId");
   }
 
   if (first === "projects" && second && third === "webhooks" && fourth) {
@@ -785,6 +836,22 @@ export function validatePublicIdResponse(path: string, response: unknown, method
       assertCloudImportFinalizeResponse(response);
       return;
     }
+  }
+  if (first === "projects" && (third === "agent-reports" || third === "site-audits")) {
+    const data = object(response)?.data;
+    if (Array.isArray(data)) {
+      for (const [index, report] of data.entries()) {
+        assertId(object(report)?.id, "agr", `data[${index}].id`);
+      }
+    } else {
+      assertId(object(data)?.id, "agr", "data.id");
+    }
+    return;
+  }
+  if (first === "projects" && (third === "ai-visibility" || third === "prompt-explorer")) {
+    const data = object(object(response)?.data);
+    if (data?.estimate === false) assertId(data.report_id, "agr", "data.report_id");
+    return;
   }
   const isProjectAlertRuleRoute = first === "projects" && third === "alert-rules";
   const isTopLevelAlertRuleRoute = first === "alert-rules" && second;

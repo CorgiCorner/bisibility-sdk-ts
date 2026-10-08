@@ -24,6 +24,7 @@ type CloudImportKeywordKeys =
   | "id"
   | "keyword"
   | "location"
+  | "location_key"
   | "rankingHistory"
   | "tags"
   | "target_url";
@@ -43,7 +44,13 @@ type CloudImportSessionSectionKeys =
   | "notification_preferences"
   | "saved_views"
   | "source_keyword_ids";
-type CloudImportKeywordTargetKeys = "device" | "keyword" | "keyword_id" | "location" | "type";
+type CloudImportKeywordTargetKeys =
+  | "device"
+  | "keyword"
+  | "keyword_id"
+  | "location"
+  | "location_key"
+  | "type";
 type CloudImportTagTargetKeys = "tag" | "type";
 type CloudImportNotificationPreferenceKeys =
   | "alert_email"
@@ -91,7 +98,7 @@ const savedViewId = "viw_a00000000000000000000000";
 const jobId = "imp_a00000000000000000000000";
 const checksum = `sha256:${"a".repeat(64)}`;
 
-const exactKeyword: CloudImportKeyword = {
+const exactKeyword: CloudImportKeyword & { location: "United States"; location_key?: never } = {
   device: "desktop",
   id: keywordId,
   keyword: "rank tracker",
@@ -99,6 +106,9 @@ const exactKeyword: CloudImportKeyword = {
   rankingHistory: [
     {
       checkedAt: "2026-07-27T00:00:00.000Z",
+      normalizationVersion: "v2",
+      provider: "dataforseo",
+      requestedDepth: 100,
       position: 3,
       previousPosition: 4,
       rankingUrl: "/rank-tracker",
@@ -144,7 +154,7 @@ const exactPackage: CloudImportPackage = {
   alert_rules: [exactAlertRule],
   competitors: [{ domain: "rival.example.com", id: competitorId, label: "Rival" }],
   exported_at: "2026-07-27T00:00:00.000Z",
-  keywords: [exactKeyword],
+  keywords: [{ ...exactKeyword, location: "United States" }],
   notification_preferences: [
     {
       alert_email: true,
@@ -161,14 +171,14 @@ const exactPackage: CloudImportPackage = {
   project_id: projectId,
   saved_views: [exactSavedView],
   scope: "history",
-  version: 5,
+  version: 6,
 };
 
 const exactSession: CloudImportSessionCreate = {
   chunk_count: 1,
   source_project_id: projectId,
   totals: { keywords: 1, rank_checks: 1 },
-  version: 5,
+  version: 6,
 };
 
 const exactSections: CloudImportSessionSections = {
@@ -216,12 +226,12 @@ function compileTimeOnly() {
   acceptsTarget({ tag_id: "tag_a00000000000000000000000", type: "tag" });
   // @ts-expect-error Tag targets have no tagId alias.
   acceptsTarget({ tag: "Brand", tagId: "tag_a00000000000000000000000", type: "tag" });
-  // @ts-expect-error Top-level rank checks are not part of v5 exports.
+  // @ts-expect-error Top-level rank checks are not part of cloud exports.
   acceptsPackage({ ...exactPackage, rank_checks: [] });
-  // @ts-expect-error v5 export envelopes use project_id, not projectId.
+  // @ts-expect-error Cloud export envelopes use project_id, not projectId.
   acceptsPackage({ ...exactPackage, projectId });
   // @ts-expect-error Session creation requires source_project_id.
-  acceptsSession({ chunk_count: 1, version: 5 });
+  acceptsSession({ chunk_count: 1, version: 6 });
   // @ts-expect-error Session sections accept only snake_case fields.
   acceptsSections({ sourceKeywordIds: {} });
   // @ts-expect-error Session results are job IDs, not ses IDs.
@@ -232,8 +242,8 @@ function compileTimeOnly() {
 
 void compileTimeOnly;
 
-describe("cloud import v5 contract", () => {
-  it("pins the exact exported v5 shapes without compatibility index signatures", () => {
+describe("cloud import package contract", () => {
+  it("pins the exact exported shapes without compatibility index signatures", () => {
     expect(cloudImportKeywordKeysMatch).toBe(true);
     expect(cloudImportPackageKeysMatch).toBe(true);
     expect(cloudImportSessionSectionKeysMatch).toBe(true);
@@ -244,7 +254,7 @@ describe("cloud import v5 contract", () => {
     expect(cloudImportSectionsHaveNoStringIndex).toBe(true);
   });
 
-  it("accepts the canonical OpenAPI v5 package, session, chunks, and results", () => {
+  it("accepts the canonical version 6 package, session, chunks, and results", () => {
     expect(() => validatePublicIdRequest("/cloud/import", { body: exactPackage })).not.toThrow();
     expect(() =>
       validatePublicIdRequest("/cloud/import/sessions", { body: exactSession }),
@@ -322,12 +332,12 @@ describe("cloud import v5 contract", () => {
 
     expect(() =>
       validatePublicIdRequest("/cloud/import/sessions", {
-        body: { chunk_count: 1, version: 5 },
+        body: { chunk_count: 1, version: 6 },
       }),
     ).toThrow();
     expect(() =>
       validatePublicIdRequest("/cloud/import/sessions", {
-        body: { chunk_count: 1, source_project_id: "cmmf4qedl0000ym5nmzq3yy7p", version: 5 },
+        body: { chunk_count: 1, source_project_id: "cmmf4qedl0000ym5nmzq3yy7p", version: 6 },
       }),
     ).toThrow();
     expect(() =>
@@ -424,7 +434,7 @@ describe("cloud import v5 contract", () => {
       ["/cloud/import/compatibility", null, "GET"],
       [
         "/cloud/import/compatibility",
-        { app_version: "2026.07.27", latest_migration: null, schema_versions_supported: [3] },
+        { app_version: "2026.07.27", latest_migration: null, schema_versions_supported: [0] },
         "GET",
       ],
       ["/cloud/import", null, "POST"],

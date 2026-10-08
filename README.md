@@ -1,7 +1,7 @@
 # @bisibility/sdk
 
-> Part of [bisibility](https://github.com/CorgiCorner/bisibility) - open-source keyword
-> rank tracking you can self-host and automate. This repository contains the TypeScript
+> Part of [bisibility](https://github.com/CorgiCorner/bisibility) - an open-source SEO
+> platform you can self-host and automate. This repository contains the TypeScript
 > SDK for the Bisibility REST API.
 >
 > [Docs](https://bisibility.com/docs) ·
@@ -112,7 +112,7 @@ Custom `fetch` implementations should preserve that behavior.
 Requests identify the package with `X-Bisibility-Client: bisibility-sdk-ts/<version>` and, where
 the runtime permits, the same value as `User-Agent`. Every request also declares its origin with
 `X-Bisibility-Source: sdk` for usage reporting; pass a different value through the `headers`
-config option (the CLI sends `cli`, the MCP server sends `mcp`). Inputs mirror JSON wire names, so payload
+config option. Inputs mirror JSON wire names, so payload
 fields use snake_case (for example `tracking_scope` and `expires_in_days`). SDK-only configuration
 and request options remain camelCase.
 
@@ -131,7 +131,8 @@ await bisibility.projects.list({
 });
 ```
 
-Without an explicit timeout or signal, every attempt has a 30-second timeout. Set `timeout: null`
+Without an explicit timeout, every attempt has a 30-second timeout, including requests with a caller
+cancellation signal. Set `timeout: null`
 on the client or an individual request to opt out.
 
 ### API version compatibility
@@ -142,6 +143,11 @@ satisfies the same check without a duplicate request. A server that advertises `
 does not serve `v1` fails with `BisibilityApiVersionError` before the requested operation runs.
 Older servers whose capabilities response has no `apiVersions` field remain compatible, and the
 original request continues normally.
+
+Successful JSON responses are checked against each operation's required envelope and value types.
+Malformed JSON, missing required fields, and incompatible values throw `BisibilityResponseError`.
+Additional server fields remain compatible. Only keyword deletion permits an empty JSON response;
+text endpoints and CSV exports use their documented text decoder.
 
 ## Public resource IDs
 
@@ -157,8 +163,13 @@ before sending a request. `PUBLIC_ID_PREFIXES`,
 and `WebhookId` are exported for callers that build typed integrations.
 
 Locations are identified by `location_key`; they do not expose a location ID.
-Cloud import and export payloads use schema version 5 only. Pagination cursors are opaque SDK
-values; v3 API cursors returned by the server must be passed back unchanged.
+Cloud import supports current version 7 and previous version 6 export packages. Version 7 keywords
+carry a canonical `location_key`; both versions preserve explicit ranking normalization, provider,
+and requested-depth metadata. Version 5 is retained only for metadata packages with no ranking
+history; session creation accepts versions 7 and 6. Compatibility discovery returns the positive
+integer versions advertised by the server, including versions newer than this SDK can import.
+Pagination cursors are opaque SDK values; v3 API cursors returned by the server must be passed back
+unchanged.
 
 ## Resource namespaces
 
@@ -171,6 +182,11 @@ compatibility delegates until 1.0.
 | `pricing` | `getRates`, `estimate` |
 | `locations` | `search` |
 | `account` | `get`, `update`, plus `tokens.list`, `tokens.create`, `tokens.revoke` |
+| `projectContext` | `get`, `update` |
+| `agentReports` | `list`, `create`, `get` |
+| `aiVisibility` | `analyze` |
+| `promptExplorer` | `compare` |
+| `siteAudits` | `list`, `run`, `get` |
 | `projects` | `list`, `create`, `get`, `update`, `delete`, `getDefaults`, `updateDefaults` |
 | `apiKeys` | `list`, `iterate`, `create`, `revoke` |
 | `webhooks` | `list`, `iterate`, `create`, `update`, `delete` |

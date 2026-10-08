@@ -4,6 +4,17 @@ import { BisibilityClient } from "../src/client.js";
 type Callable = (...args: unknown[]) => unknown;
 
 const resourceMethods = {
+  "projectContext.get": "getProjectContext",
+  "projectContext.update": "updateProjectContext",
+  "agentReports.list": "listAgentReports",
+  "agentReports.create": "createAgentReport",
+  "agentReports.get": "getAgentReport",
+  "aiVisibility.analyze": "analyzeAiVisibility",
+  "promptExplorer.compare": "compareAiPrompts",
+  "siteAudits.list": "listSiteAudits",
+  "siteAudits.run": "runSiteAudit",
+  "siteAudits.get": "getSiteAudit",
+
   "researchReports.list": "listStoredResearchReports",
   "researchReports.get": "getStoredResearchReport",
   "providers.budgets.list": "listProviderBudgets",
@@ -128,6 +139,11 @@ const customResourceMethods = [
 ] as const;
 
 const topLevelResources = [
+  "agentReports",
+  "projectContext",
+  "aiVisibility",
+  "promptExplorer",
+  "siteAudits",
   "account",
   "alertRules",
   "alerts",

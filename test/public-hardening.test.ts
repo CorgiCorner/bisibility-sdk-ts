@@ -144,6 +144,23 @@ describe("BisibilityApiError helpers", () => {
 });
 
 describe("BisibilityClient timeout handling", () => {
+  it("keeps the 30-second default when a caller supplies a cancellation signal", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const controller = new AbortController();
+    const calls: RequestInit[] = [];
+    const sdk = client(
+      vi.fn(async (_input, init) => {
+        calls.push(init ?? {});
+        return json(emptyPage);
+      }),
+    );
+    await sdk.listProjects({ signal: controller.signal });
+    expect(timeout).toHaveBeenCalledWith(30_000);
+    expect(calls[0]?.signal).not.toBe(controller.signal);
+    controller.abort();
+    expect(calls[0]?.signal?.aborted).toBe(true);
+  });
+
   it("applies a default abort signal and lets timeout: null disable it", async () => {
     const calls: RequestInit[] = [];
     const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
@@ -223,13 +240,26 @@ describe("BisibilityClient retry and backoff", () => {
     const withKey = vi
       .fn()
       .mockResolvedValueOnce(busy())
-      .mockResolvedValueOnce(json({ id: "key_f00000000000000000000000" }));
+      .mockResolvedValueOnce(
+        json({
+          created_at: "2026-10-07T00:00:00.000Z",
+          expires_at: null,
+          id: "key_f00000000000000000000000",
+          last_used_at: null,
+          name: "CI",
+          prefix: "bsb_key_test_",
+          revoked_at: null,
+          scope: "admin",
+          masked_value: "bsb_key_test_...",
+          token: "bsb_key_test_x",
+        }),
+      );
     const result = client(withKey, { maxRetries: 1 }).createApiKey(
       { name: "CI" },
       { idempotencyKey: "idem_1", timeout: null },
     );
     await vi.advanceTimersByTimeAsync(500);
-    await expect(result).resolves.toEqual({ id: "key_f00000000000000000000000" });
+    await expect(result).resolves.toMatchObject({ id: "key_f00000000000000000000000" });
   });
 
   it("lets a caller abort interrupt a retry sleep", async () => {
@@ -256,7 +286,26 @@ describe("BisibilityClient retry and backoff", () => {
 
 describe("BisibilityClient resource iterators", () => {
   it("exercises every resource iterator", async () => {
-    const fetchMock = vi.fn(async () => json({ data: [], meta: { next_cursor: null } }));
+    const fetchMock = vi.fn(async () =>
+      json({
+        data: [],
+        meta: {
+          next_cursor: null,
+          markets: [],
+          suggestions: [],
+          import_job: {
+            counts: null,
+            created_at: null,
+            error: null,
+            finished_at: null,
+            id: null,
+            progress: 0,
+            started_at: null,
+            state: "idle",
+          },
+        },
+      }),
+    );
     const sdk = client(fetchMock, { maxRetries: 0, timeout: null });
     const iterators = [
       sdk.iterateKeywords("prj_a00000000000000000000000", { search: "same" }),
@@ -336,6 +385,17 @@ describe("BisibilityClient empty response handling", () => {
       client(fetchMock, { maxRetries: 0 }).getProject("prj_a00000000000000000000000", {
         timeout: null,
       }),
+    ).rejects.toBeInstanceOf(BisibilityResponseError);
+  });
+
+  it.each([
+    {},
+    { data: {} },
+    { data: [], meta: {} },
+    { data: [{ id: 7 }], meta: { next_cursor: null } },
+  ])("rejects a project page with an invalid envelope or required value: %j", async (body) => {
+    await expect(
+      client(vi.fn().mockResolvedValue(json(body))).listProjects(),
     ).rejects.toBeInstanceOf(BisibilityResponseError);
   });
 

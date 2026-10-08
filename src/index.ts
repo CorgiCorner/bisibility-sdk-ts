@@ -78,6 +78,7 @@ export type {
   CloudImportKeywordAlertTarget,
   CloudImportKeywordsChunk,
   CloudImportLocation,
+  CloudImportLegacyKeyword,
   CloudImportNotificationPreference,
   CloudImportPackage,
   CloudImportRankingHistory,
@@ -364,3 +365,5 @@ export type {
 export { BisibilityClient as default } from "./client.js";
 
 export type * from "./reports-budgets.js";
+
+export type * from "./research-workspace.js";

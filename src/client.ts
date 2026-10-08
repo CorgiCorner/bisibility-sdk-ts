@@ -23,7 +23,23 @@ import type {
   StoredResearchReportOptions,
   StoredResearchReportsResponse,
 } from "./reports-budgets.js";
+import type {
+  AgentReport,
+  AgentReportId,
+  AgentReportSummary,
+  AiAnalysisOutcome,
+  AnalyzeAiVisibilityInput,
+  CompareAiPromptsInput,
+  CreateAgentReportInput,
+  ListAgentReportsOptions,
+  ProjectContext,
+  ProjectContextInput,
+  RunSiteAuditInput,
+  SiteAudit,
+} from "./research-workspace.js";
 import { type ClientResourceNamespaces, installResourceNamespaces } from "./resources.js";
+import { successContractData } from "./response-contract-data.js";
+import { validateSuccessResponse } from "./response-contract.js";
 import type {
   AddCompetitorInput,
   AlertId,
@@ -432,6 +448,11 @@ export class BisibilityClient {
   readonly #maxRetries: number;
   readonly #projectId: ProjectId | undefined;
   readonly #timeout: number | null | undefined;
+  declare readonly agentReports: ClientResourceNamespaces["agentReports"];
+  declare readonly projectContext: ClientResourceNamespaces["projectContext"];
+  declare readonly aiVisibility: ClientResourceNamespaces["aiVisibility"];
+  declare readonly promptExplorer: ClientResourceNamespaces["promptExplorer"];
+  declare readonly siteAudits: ClientResourceNamespaces["siteAudits"];
   declare readonly account: ClientResourceNamespaces["account"];
   declare readonly alertRules: ClientResourceNamespaces["alertRules"];
   declare readonly alerts: ClientResourceNamespaces["alerts"];
@@ -1335,11 +1356,9 @@ export class BisibilityClient {
     for (;;) {
       const history = await this.listRankChecks(keywordId, { limit: 50 }, runOptions);
       const check = history.data.find((item) => item.run_id === runId);
-      if (check) return check;
+      if (check && check.status !== "running") return check;
       if (Date.now() >= deadline) {
-        throw new BisibilityTimeoutError(
-          `Rank check run ${runId} did not produce a check in time.`,
-        );
+        throw new BisibilityTimeoutError(`Rank check run ${runId} did not finish in time.`);
       }
       await new Promise((resolve) => setTimeout(resolve, interval));
     }
@@ -1672,6 +1691,107 @@ export class BisibilityClient {
     return this.request<TeamMemberMutationResult>(
       "DELETE",
       `/projects/${encodedPathSegment(projectId)}/team/members/${encodedPathSegment(memberId)}`,
+      options,
+    );
+  }
+
+  /** @deprecated Use `client.projectContext.get()`. */
+  getProjectContext(projectId: ProjectId, options?: RequestOptions) {
+    return this.request<DataResponse<ProjectContext>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/context`,
+      options,
+    );
+  }
+
+  /** Replace all five project guidance fields.
+   * @deprecated Use `client.projectContext.update()`. */
+  updateProjectContext(projectId: ProjectId, input: ProjectContextInput, options?: RequestOptions) {
+    return this.request<DataResponse<ProjectContext>>(
+      "PATCH",
+      `/projects/${encodedPathSegment(projectId)}/context`,
+      { ...options, body: input },
+    );
+  }
+
+  /** @deprecated Use `client.agentReports.list()`. */
+  listAgentReports(
+    projectId: ProjectId,
+    query: ListAgentReportsOptions = {},
+    options?: RequestOptions,
+  ) {
+    return this.request<ListResponse<AgentReportSummary>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/agent-reports`,
+      { ...options, query: { kind: query.kind, limit: query.limit, cursor: query.cursor } },
+    );
+  }
+
+  /** @deprecated Use `client.agentReports.create()`. */
+  createAgentReport(projectId: ProjectId, input: CreateAgentReportInput, options?: RequestOptions) {
+    return this.request<DataResponse<AgentReport>>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/agent-reports`,
+      { ...options, body: input },
+    );
+  }
+
+  /** @deprecated Use `client.agentReports.get()`. */
+  getAgentReport(projectId: ProjectId, reportId: AgentReportId, options?: RequestOptions) {
+    return this.request<DataResponse<AgentReport>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/agent-reports/${encodedPathSegment(reportId)}`,
+      options,
+    );
+  }
+
+  /** Paid requests require an explicit maximum cost; estimates do not start provider work.
+   * @deprecated Use `client.aiVisibility.analyze()`. */
+  analyzeAiVisibility(
+    projectId: ProjectId,
+    input: AnalyzeAiVisibilityInput,
+    options?: RequestOptions,
+  ) {
+    return this.request<DataResponse<AiAnalysisOutcome>>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/ai-visibility`,
+      { ...options, body: input },
+    );
+  }
+
+  /** Synthetic prompt comparisons retain their evidence label in the result.
+   * @deprecated Use `client.promptExplorer.compare()`. */
+  compareAiPrompts(projectId: ProjectId, input: CompareAiPromptsInput, options?: RequestOptions) {
+    return this.request<DataResponse<AiAnalysisOutcome>>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/prompt-explorer`,
+      { ...options, body: input },
+    );
+  }
+
+  /** @deprecated Use `client.siteAudits.list()`. */
+  listSiteAudits(projectId: ProjectId, options?: RequestOptions) {
+    return this.request<DataResponse<AgentReportSummary[]>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/site-audits`,
+      options,
+    );
+  }
+
+  /** @deprecated Use `client.siteAudits.run()`. */
+  runSiteAudit(projectId: ProjectId, input: RunSiteAuditInput = {}, options?: RequestOptions) {
+    return this.request<DataResponse<SiteAudit>>(
+      "POST",
+      `/projects/${encodedPathSegment(projectId)}/site-audits`,
+      { ...options, body: input },
+    );
+  }
+
+  /** @deprecated Use `client.siteAudits.get()`. */
+  getSiteAudit(projectId: ProjectId, reportId: AgentReportId, options?: RequestOptions) {
+    return this.request<DataResponse<SiteAudit>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/site-audits/${encodedPathSegment(reportId)}`,
       options,
     );
   }
@@ -2386,9 +2506,7 @@ export class BisibilityClient {
         ? validatedTimeout(options.timeout)
         : this.#timeout !== undefined
           ? this.#timeout
-          : options.signal
-            ? null
-            : DEFAULT_TIMEOUT;
+          : DEFAULT_TIMEOUT;
     const retryable =
       IDEMPOTENT_METHODS.has(method.toUpperCase()) || headers.has("Idempotency-Key");
 
@@ -2471,18 +2589,16 @@ export class BisibilityClient {
     }
 
     try {
+      validateSuccessResponse(successContractData, method, path, parsed);
       validatePublicIdResponse(path, parsed, method);
     } catch (cause) {
-      throw new BisibilityResponseError(
-        "Bisibility API returned an invalid public ID response contract.",
-        {
-          body,
-          cause,
-          method,
-          status: response.status,
-          url,
-        },
-      );
+      throw new BisibilityResponseError("Bisibility API returned an invalid response contract.", {
+        body,
+        cause,
+        method,
+        status: response.status,
+        url,
+      });
     }
 
     return parsed;

@@ -3,6 +3,7 @@
  * primary keys and always use a lowercase 24-character CUID2 suffix.
  */
 export const PUBLIC_ID_RESOURCE_REGISTRY = {
+  agr: "agentReport",
   al: "triggeredAlert",
   alr: "alertRule",
   audit: "auditLog",
