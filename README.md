@@ -509,3 +509,44 @@ const report = await client.researchReports.get(projectId, "keyword_research", {
 const budgets = await client.providers.budgets.list(projectId);
 await client.providers.budgets.update(projectId, "dataforseo", { own: { app: null }, credits: { programmatic: { amount_per_month: 500, unit: "cents" } } });
 ```
+
+## AI tracking
+
+AI tracking methods manage project topics, immutable prompt revisions, disabled-by-default
+schedules, runs, samples, history, comparable trends, evidence exports, and editable prompt
+suggestions. Tracking resource IDs use `ait_`, `aip_`, `apr_`, `ais_`, `air_`, and `asm_`.
+Preview before launching paid work, pass the preview credential/budget/consent revisions, and
+provide explicit consent plus an `Idempotency-Key` for launch or retry. Preview never submits a
+provider task. Preserve the returned decimal USD strings, null amounts, unknown measurement
+states, original observation times, and cited sources. Model API tests and consumer observations
+remain distinct evidence sources.
+
+The free AI research catalog supplies current model and locale choices. Prompt comparison
+supports hard caps and explicitly consented provider actual-cost mode. Actual-cost mode requires
+`non_guaranteed_estimate_v1` acknowledgement and an advisory estimate limit; execution also
+requires the estimate credential reference and a stable UUID. An advisory limit is not a
+guaranteed maximum charge.
+
+Model prompt generation uses `aiTrackingSuggestionsPreview` followed by
+`aiTrackingSuggestionsGenerate`. Review the complete context, selected competitors, model and
+market before generation; the full serialized snapshot must fit within 5000 Unicode characters.
+Generation requires the complete unexpired preview, explicit paid consent and a stable UUID
+`idempotencyKey`. Forecasts are not guaranteed maximum costs. Accepted edits retain
+`generation_reference: { generation_id, draft_id }`; provider dataset acceptance uses a verified
+`provider_dataset_reference: { report_id, row_index }`. Generated popularity remains null.
+
+These additions are unreleased. Tracking and catalog calls require a compatible application API;
+a compatible SDK release must precede the registry-dependent MCP release.
+
+## Response evidence compatibility
+
+Rank checks expose optional `observation_completeness`, and keywords expose optional
+`latest_check` and `latest_successful_check`. Older responses can omit these fields.
+Only complete coverage supports absence within the requested depth; a positive position
+remains valid with unknown or truncated coverage. A newer failure retains the prior success.
+
+Site backlinks normally have 12 history months. A successful partial snapshot has
+`history: []` and `history_unavailable: true`; preserve its summary, rows and confirmed cost.
+Page scope does not request history. Missing availability metadata uses the legacy default.
+A failed summary remains an HTTP error with current-response evidence in problem `details`:
+`cost_cents: null` is an unknown total, while `known_summary_cost_cents` is confirmed.

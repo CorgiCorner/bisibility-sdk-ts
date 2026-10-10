@@ -339,6 +339,29 @@ export interface KeywordSchedule {
   timezone: string;
 }
 
+/** Only complete coverage supports absence; positive ranks remain valid at any coverage. */
+export type ObservationCompleteness = "complete" | "truncated_by_stop_on_match" | "unknown";
+
+export interface KeywordLatestCheck {
+  checked_at: string;
+  error: string | null;
+  error_code: string | null;
+  id: RankCheckId;
+  observation_completeness: ObservationCompleteness | null;
+  position: number | null;
+  run_id: RankCheckRunId | null;
+  status: RankCheckStatus;
+}
+
+export interface KeywordLatestSuccessfulCheck {
+  checked_at: string;
+  id: RankCheckId;
+  observation_completeness: ObservationCompleteness | null;
+  position: number | null;
+  ranking_url: string | null;
+  run_id: RankCheckRunId | null;
+}
+
 export interface Keyword {
   country: string;
   created_at: string;
@@ -347,7 +370,11 @@ export interface Keyword {
   intent: string | null;
   language_code: string;
   language_label: string;
+  /** Optional on older servers; null means no executed check. */
+  latest_check?: KeywordLatestCheck | null;
   latest_position: number | null;
+  /** Retained independently of a newer failed check. Optional on older servers. */
+  latest_successful_check?: KeywordLatestSuccessfulCheck | null;
   location: string;
   location_key: string;
   previous_position: number | null;
@@ -598,6 +625,8 @@ export interface BacklinksSnapshot {
   fetched_at: string;
   fetched_row_count: number;
   history: BacklinksHistoryMonth[];
+  /** True with empty history after an optional history failure; absent on older snapshots. */
+  history_unavailable?: boolean;
   include_subdomains: boolean;
   provider: string;
   rows: BacklinkRow[];
@@ -1074,6 +1103,8 @@ export interface RankCheck {
   error: string | null;
   id: RankCheckId;
   keyword_id: KeywordId;
+  /** Missing or null on legacy checks; a null position alone does not establish absence. */
+  observation_completeness?: ObservationCompleteness | null;
   position: number | null;
   previous_position: number | null;
   provider: string;

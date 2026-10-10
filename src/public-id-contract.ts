@@ -1,3 +1,4 @@
+import { validateAiTrackingResponse } from "./ai-tracking-validation.js";
 import { type PublicIdPrefix, isPublicIdOfType, publicIdExpectation } from "./public-id.js";
 
 type QueryValue = boolean | Date | number | string | null | undefined;
@@ -812,6 +813,7 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
 
 /** Validates ID-bearing public response fields for resources with contextual IDs. */
 export function validatePublicIdResponse(path: string, response: unknown, method?: string) {
+  validateAiTrackingResponse(path, response);
   const route = segments(path);
   const [first, second, third, fourth, fifth] = route;
   const requestMethod = method?.toUpperCase();

@@ -1,3 +1,5 @@
+import type { AiResearchCatalog } from "./ai-research-catalog.js";
+import { type AiTrackingMethods, installAiTrackingMethods } from "./ai-tracking-methods.js";
 import {
   BISIBILITY_API_VERSION,
   BISIBILITY_API_VERSION_HEADER,
@@ -218,6 +220,14 @@ interface InternalRequestOptions extends RequestOptions {
   parseAs?: "json" | "text";
   query?: QueryParams;
   skipApiVersionPreflight?: boolean;
+  /**
+   * Suppresses the SDK's automatic retry for this request even when the method would
+   * otherwise be treated as idempotent. Used by endpoints that can spend the project's
+   * provider budget on a cache miss: a network error after the request leaves the socket
+   * cannot be distinguished from a lost response, and the backend is not idempotent for
+   * these operations, so a retry can duplicate paid provider work.
+   */
+  unsafeToRetry?: boolean;
 }
 
 function isAbsoluteUrl(value: string) {
@@ -441,6 +451,33 @@ function validateCredential(value: string | undefined) {
 }
 
 export class BisibilityClient {
+  declare readonly aiTrackingSuggestionsPreview: AiTrackingMethods["aiTrackingSuggestionsPreview"];
+  declare readonly aiTrackingSuggestionsGenerate: AiTrackingMethods["aiTrackingSuggestionsGenerate"];
+  declare readonly listAiTrackingTopics: AiTrackingMethods["listAiTrackingTopics"];
+  declare readonly createAiTrackingTopic: AiTrackingMethods["createAiTrackingTopic"];
+  declare readonly updateAiTrackingTopic: AiTrackingMethods["updateAiTrackingTopic"];
+  declare readonly archiveAiTrackingTopic: AiTrackingMethods["archiveAiTrackingTopic"];
+  declare readonly listAiTrackingPrompts: AiTrackingMethods["listAiTrackingPrompts"];
+  declare readonly createAiTrackingPrompt: AiTrackingMethods["createAiTrackingPrompt"];
+  declare readonly updateAiTrackingPrompt: AiTrackingMethods["updateAiTrackingPrompt"];
+  declare readonly archiveAiTrackingPrompt: AiTrackingMethods["archiveAiTrackingPrompt"];
+  declare readonly listAiTrackingSchedules: AiTrackingMethods["listAiTrackingSchedules"];
+  declare readonly createAiTrackingSchedule: AiTrackingMethods["createAiTrackingSchedule"];
+  declare readonly updateAiTrackingSchedule: AiTrackingMethods["updateAiTrackingSchedule"];
+  declare readonly archiveAiTrackingSchedule: AiTrackingMethods["archiveAiTrackingSchedule"];
+  declare readonly previewAiTrackingRun: AiTrackingMethods["previewAiTrackingRun"];
+  declare readonly createAiTrackingRun: AiTrackingMethods["createAiTrackingRun"];
+  declare readonly listAiTrackingRuns: AiTrackingMethods["listAiTrackingRuns"];
+  declare readonly getAiTrackingRun: AiTrackingMethods["getAiTrackingRun"];
+  declare readonly listAiTrackingSamples: AiTrackingMethods["listAiTrackingSamples"];
+  declare readonly cancelAiTrackingRun: AiTrackingMethods["cancelAiTrackingRun"];
+  declare readonly retryAiTrackingRun: AiTrackingMethods["retryAiTrackingRun"];
+  declare readonly getAiTrackingHistory: AiTrackingMethods["getAiTrackingHistory"];
+  declare readonly getAiTrackingTrends: AiTrackingMethods["getAiTrackingTrends"];
+  declare readonly exportAiTrackingEvidence: AiTrackingMethods["exportAiTrackingEvidence"];
+  declare readonly suggestAiTrackingPrompts: AiTrackingMethods["suggestAiTrackingPrompts"];
+  declare readonly acceptAiTrackingSuggestions: AiTrackingMethods["acceptAiTrackingSuggestions"];
+
   #apiVersionPreflight: Promise<void> | undefined;
   readonly #authorizationToken: string | undefined;
   readonly #defaultHeaders: HeadersInit | undefined;
@@ -495,6 +532,9 @@ export class BisibilityClient {
     this.#maxRetries = validatedMaxRetries(config.maxRetries);
     this.#projectId = config.projectId;
     this.#timeout = validatedTimeout(config.timeout);
+    installAiTrackingMethods(this, {
+      request: (method, path, options) => this.request(method, path, options),
+    });
     installResourceNamespaces(this);
   }
 
@@ -947,6 +987,9 @@ export class BisibilityClient {
           max_cost_cents: filters.maxCostCents,
           offset: filters.offset,
         },
+        // A cache miss here spends provider budget and the backend is not idempotent, so a
+        // retry after a lost response could duplicate the paid provider work.
+        unsafeToRetry: true,
       },
     );
   }
@@ -993,6 +1036,9 @@ export class BisibilityClient {
           result_limit: options.resultLimit,
           seed: options.seed,
         },
+        // A cache miss here spends provider budget and the backend is not idempotent, so a
+        // retry after a lost response could duplicate the paid provider work.
+        unsafeToRetry: true,
       },
     );
   }
@@ -1039,6 +1085,9 @@ export class BisibilityClient {
           fresh: options.fresh,
           max_cost_cents: options.maxCostCents,
         },
+        // A cache miss here spends provider budget and the backend is not idempotent, so a
+        // retry after a lost response could duplicate the paid provider work.
+        unsafeToRetry: true,
       },
     );
   }
@@ -1691,6 +1740,15 @@ export class BisibilityClient {
     return this.request<TeamMemberMutationResult>(
       "DELETE",
       `/projects/${encodedPathSegment(projectId)}/team/members/${encodedPathSegment(memberId)}`,
+      options,
+    );
+  }
+
+  /** Free provider model and locale capabilities. */
+  getAiResearchCatalog(projectId: ProjectId, options?: RequestOptions) {
+    return this.request<DataResponse<AiResearchCatalog>>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/ai-catalog`,
       options,
     );
   }
@@ -2508,7 +2566,8 @@ export class BisibilityClient {
           ? this.#timeout
           : DEFAULT_TIMEOUT;
     const retryable =
-      IDEMPOTENT_METHODS.has(method.toUpperCase()) || headers.has("Idempotency-Key");
+      !options.unsafeToRetry &&
+      (IDEMPOTENT_METHODS.has(method.toUpperCase()) || headers.has("Idempotency-Key"));
 
     for (let attempt = 0; ; attempt += 1) {
       const init: RequestInit = { ...baseInit };

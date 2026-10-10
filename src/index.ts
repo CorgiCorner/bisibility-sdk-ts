@@ -34,6 +34,9 @@ export {
 } from "./public-id.js";
 export type { PublicId, PublicIdForPrefix, PublicIdPrefix } from "./public-id.js";
 export type {
+  KeywordLatestCheck,
+  KeywordLatestSuccessfulCheck,
+  ObservationCompleteness,
   ActiveMigrationToken,
   AddCompetitorInput,
   AnalyzeBacklinksOptions,
@@ -367,3 +370,8 @@ export { BisibilityClient as default } from "./client.js";
 export type * from "./reports-budgets.js";
 
 export type * from "./research-workspace.js";
+
+export type { AiResearchCatalog } from "./ai-research-catalog.js";
+export type * from "./ai-tracking.js";
+
+export type * from "./ai-tracking-suggestions.js";

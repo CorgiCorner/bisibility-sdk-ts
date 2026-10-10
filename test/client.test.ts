@@ -4050,6 +4050,78 @@ describe("BisibilityClient errors", () => {
     });
   });
 
+  it("does not auto-retry listRankedKeywordSuggestions after a lost response (paid provider work)", async () => {
+    // A cache miss on this GET spends provider budget and the backend is not idempotent, so a
+    // retry after a lost response (network error after send) can duplicate the paid work.
+    const cause = new Error("socket closed");
+    fetchMock.mockRejectedValueOnce(cause).mockRejectedValueOnce(cause);
+
+    const client = createClient(fetchMock, { maxRetries: 2 });
+    await expect(
+      client.listRankedKeywordSuggestions("prj_a00000000000000000000000", {
+        connectionId: "conn_n00000000000000000000000",
+        fresh: true,
+        maxCostCents: 5,
+      }),
+    ).rejects.toMatchObject({ name: "BisibilityNetworkError" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not auto-retry researchKeywords after a lost response (paid provider work)", async () => {
+    const cause = new Error("socket closed");
+    fetchMock.mockRejectedValueOnce(cause).mockRejectedValueOnce(cause);
+
+    const client = createClient(fetchMock, { maxRetries: 2 });
+    await expect(
+      client.researchKeywords("prj_a00000000000000000000000", {
+        connectionId: "conn_n00000000000000000000000",
+        fresh: true,
+        maxCostCents: 5,
+        mode: "related",
+        seed: "rank tracker",
+      }),
+    ).rejects.toMatchObject({ name: "BisibilityNetworkError" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not auto-retry analyzeBacklinks after a lost response (paid provider work)", async () => {
+    // GET /projects/{id}/backlinks forwards fresh and max_cost_cents; a cache miss spends
+    // provider budget and the backend is not idempotent, so a retry after a lost response
+    // (network error after send) can duplicate the paid work.
+    const cause = new Error("socket closed");
+    fetchMock
+      .mockRejectedValueOnce(cause)
+      .mockRejectedValueOnce(cause)
+      .mockRejectedValueOnce(cause);
+
+    const client = createClient(fetchMock, { maxRetries: 2 });
+    await expect(
+      client.analyzeBacklinks("prj_a00000000000000000000000", {
+        target: "example.com",
+        targetScope: "site",
+        mode: "one_per_domain",
+        fresh: true,
+        maxCostCents: 50,
+      }),
+    ).rejects.toMatchObject({ name: "BisibilityNetworkError" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("still auto-retries safe GETs that cannot spend provider budget", async () => {
+    const cause = new Error("socket closed");
+    fetchMock
+      .mockRejectedValueOnce(cause)
+      .mockRejectedValueOnce(cause)
+      .mockRejectedValueOnce(cause);
+
+    const client = createClient(fetchMock, { maxRetries: 2 });
+    await expect(client.listProjects()).rejects.toMatchObject({
+      name: "BisibilityNetworkError",
+    });
+    // Original attempt + 2 retries.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("throws a response error for invalid success JSON", async () => {
     fetchMock.mockResolvedValueOnce(textResponse("not json", { status: 200 }));
 

@@ -57,9 +57,19 @@ export interface AnalyzeAiVisibilityInput extends AiAnalysisInput {
   limit?: number;
 }
 
-export interface CompareAiPromptsInput extends AiAnalysisInput {
+export interface CompareAiPromptsInput extends Omit<AiAnalysisInput, "max_cost_cents"> {
+  max_cost_cents?: number;
+  cost_policy?: "hard_cap" | "provider_actual_cost";
+  actual_cost_acknowledgement?: "non_guaranteed_estimate_v1";
+  estimated_cost_limit_cents?: number;
+  idempotency_key?: string;
+  estimate_credentials_ref?: string;
+  web_search?: boolean;
+  country_iso_code?: string;
+  response_language?: string;
+  max_output_tokens?: number;
   prompt: string;
-  models?: Array<"gpt-4.1-mini" | "gpt-4.1-nano">;
+  models?: string[];
 }
 
 export type AiEvidence = "observed_dataset" | "synthetic_prompt_test";
@@ -87,7 +97,22 @@ export interface AiAnalysisResult {
 }
 
 export type AiAnalysisOutcome =
-  | { ok: true; estimate: true; estimated_cost_cents: number; evidence: AiEvidence }
+  | {
+      ok: true;
+      estimate: true;
+      estimated_cost_cents: number;
+      evidence: AiEvidence;
+      estimate_kind?: "forecast" | "admission_bound";
+      is_guaranteed_maximum?: boolean;
+      credential_source?: "own" | "hosted";
+      estimate_credentials_ref?: string;
+      is_partial_estimate?: boolean;
+      pricing_policy?: "legacy_dated" | "current_catalog" | "provider_actual_cost";
+      pricing_checked_at?: string;
+      forecast_exclusions?: string[];
+      forecast_scope?: "tokens_and_base_only";
+      forecast_assumptions?: string[];
+    }
   | {
       ok: true;
       estimate: false;
@@ -95,6 +120,7 @@ export type AiAnalysisOutcome =
       report_id: AgentReportId;
       cost_cents: number;
       result: AiAnalysisResult;
+      retry_blocked?: boolean;
     };
 
 export interface RunSiteAuditInput {
