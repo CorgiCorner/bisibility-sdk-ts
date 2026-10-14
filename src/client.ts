@@ -6,6 +6,13 @@ import {
   UNSUPPORTED_API_VERSION_PROBLEM_TYPE,
 } from "./api-version.js";
 import {
+  type ProjectDefaultsPreview,
+  type ReviewedProjectDefaultsPatch,
+  assertReviewedDefaultsSupport,
+  reviewedDefaultsOptions,
+  validateDefaultsPreview,
+} from "./defaults-review.js";
+import {
   BisibilityApiError,
   BisibilityApiVersionError,
   BisibilityConfigurationError,
@@ -14,9 +21,16 @@ import {
   BisibilityTimeoutError,
   isUnsupportedApiVersionProblem,
 } from "./errors.js";
+import { type LocalMonitorMethods, installLocalMonitorMethods } from "./local-monitor-methods.js";
 import { iterateCursorPagination } from "./pagination.js";
 import { validatePublicIdRequest, validatePublicIdResponse } from "./public-id-contract.js";
 import { isPublicIdOfType } from "./public-id.js";
+import type {
+  ListRankCheckRunsOptions,
+  RankCheckRunRead,
+  RankCheckRunReadList,
+} from "./rank-check-runs.js";
+import { collectRankHistoryReport } from "./rank-history-report-pages.js";
 import type {
   ProviderBudgets,
   ProviderBudgetsUpdate,
@@ -99,6 +113,7 @@ import type {
   EstimateKeywordResearchOptions,
   ExportRankHistoryCsvOptions,
   ExportRankHistoryJsonOptions,
+  ExportRankHistoryReportJsonOptions,
   FetchLike,
   GetCostEstimateOptions,
   GetKeywordMetricsInput,
@@ -157,7 +172,11 @@ import type {
   ProviderTestResult,
   RankCheck,
   RankCheckId,
+  RankCheckRunId,
   RankHistoryExportResponse,
+  RankHistoryExportRow,
+  RankHistoryReportRecord,
+  RankHistoryReportResponse,
   RankedKeywordSuggestionsResponse,
   ReadinessResponse,
   RemoveCompetitorResponse,
@@ -220,6 +239,8 @@ interface InternalRequestOptions extends RequestOptions {
   parseAs?: "json" | "text";
   query?: QueryParams;
   skipApiVersionPreflight?: boolean;
+  /** Previews must never populate the commit's mutation replay bucket. */
+  skipIdempotencyKey?: boolean;
   /**
    * Suppresses the SDK's automatic retry for this request even when the method would
    * otherwise be treated as idempotent. Used by endpoints that can spend the project's
@@ -451,6 +472,12 @@ function validateCredential(value: string | undefined) {
 }
 
 export class BisibilityClient {
+  declare readonly listLocalMonitorRuns: LocalMonitorMethods["listLocalMonitorRuns"];
+  declare readonly getLocalMonitorRunResults: LocalMonitorMethods["getLocalMonitorRunResults"];
+  declare readonly listLocalMonitorPointListings: LocalMonitorMethods["listLocalMonitorPointListings"];
+  declare readonly listLocalMonitorPointHistory: LocalMonitorMethods["listLocalMonitorPointHistory"];
+  declare readonly exportLocalMonitorRun: LocalMonitorMethods["exportLocalMonitorRun"];
+
   declare readonly aiTrackingSuggestionsPreview: AiTrackingMethods["aiTrackingSuggestionsPreview"];
   declare readonly aiTrackingSuggestionsGenerate: AiTrackingMethods["aiTrackingSuggestionsGenerate"];
   declare readonly listAiTrackingTopics: AiTrackingMethods["listAiTrackingTopics"];
@@ -507,6 +534,7 @@ export class BisibilityClient {
   declare readonly projects: ClientResourceNamespaces["projects"];
   declare readonly researchReports: ClientResourceNamespaces["researchReports"];
   declare readonly providers: ClientResourceNamespaces["providers"];
+  declare readonly localMonitors: ClientResourceNamespaces["localMonitors"];
   declare readonly rankChecks: ClientResourceNamespaces["rankChecks"];
   declare readonly savedViews: ClientResourceNamespaces["savedViews"];
   declare readonly signals: ClientResourceNamespaces["signals"];
@@ -533,6 +561,9 @@ export class BisibilityClient {
     this.#projectId = config.projectId;
     this.#timeout = validatedTimeout(config.timeout);
     installAiTrackingMethods(this, {
+      request: (method, path, options) => this.request(method, path, options),
+    });
+    installLocalMonitorMethods(this, {
       request: (method, path, options) => this.request(method, path, options),
     });
     installResourceNamespaces(this);
@@ -739,15 +770,39 @@ export class BisibilityClient {
    * 100) and `serp_stop_on_match` each keep their stored value when omitted.
    * @deprecated Use `client.projects.updateDefaults()`.
    */
-  updateProjectDefaults(
+  async updateProjectDefaults(
+    projectId: ProjectId,
+    input: ReviewedProjectDefaultsPatch,
+    options?: RequestOptions,
+  ) {
+    const reviewedOptions = reviewedDefaultsOptions(input, options);
+    if (input.review !== undefined) {
+      if (!isPublicIdOfType(projectId, "prj"))
+        throw new BisibilityConfigurationError("Expected a project public ID.");
+      assertReviewedDefaultsSupport(await this.getCapabilities(options));
+    }
+    return this.request<ProjectDefaults>(
+      "PATCH",
+      `/projects/${encodedPathSegment(projectId)}/defaults`,
+      { ...reviewedOptions, body: input },
+    );
+  }
+
+  /** @deprecated Use `client.projects.previewDefaults()` to read a signed draft. */
+  async previewProjectDefaults(
     projectId: ProjectId,
     input: ProjectDefaultsPatch,
     options?: RequestOptions,
   ) {
-    return this.request<ProjectDefaults>(
+    if (Object.hasOwn(input, "review"))
+      throw new BisibilityConfigurationError("Preview accepts draft settings only.");
+    if (!isPublicIdOfType(projectId, "prj"))
+      throw new BisibilityConfigurationError("Expected a project public ID.");
+    assertReviewedDefaultsSupport(await this.getCapabilities(options));
+    return this.request<ProjectDefaultsPreview>(
       "PATCH",
       `/projects/${encodedPathSegment(projectId)}/defaults`,
-      { ...options, body: input },
+      { ...options, body: input, query: { preview_only: "true" }, skipIdempotencyKey: true },
     );
   }
 
@@ -1255,6 +1310,12 @@ export class BisibilityClient {
     );
   }
 
+  /** Opt in to the frozen report record and quality contract. */
+  exportRankHistory(
+    projectId: ProjectId,
+    options: ExportRankHistoryReportJsonOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<RankHistoryReportResponse>;
   /** @deprecated Use `client.rankChecks.history.export()`. */
   exportRankHistory(
     projectId: ProjectId,
@@ -1270,10 +1331,13 @@ export class BisibilityClient {
   /** @deprecated Use `client.rankChecks.history.export()`. */
   exportRankHistory(
     projectId: ProjectId,
-    options: ExportRankHistoryCsvOptions | ExportRankHistoryJsonOptions = {},
+    options:
+      | ExportRankHistoryCsvOptions
+      | ExportRankHistoryJsonOptions
+      | ExportRankHistoryReportJsonOptions = {},
     requestOptions?: RequestOptions,
-  ): Promise<RankHistoryExportResponse | string> {
-    return this.request<RankHistoryExportResponse | string>(
+  ): Promise<RankHistoryExportResponse | RankHistoryReportResponse | string> {
+    return this.request<RankHistoryExportResponse | RankHistoryReportResponse | string>(
       "GET",
       `/projects/${encodedPathSegment(projectId)}/exports/rank-history`,
       {
@@ -1286,24 +1350,74 @@ export class BisibilityClient {
           keyword_id: options.keywordIds,
           limit: "limit" in options ? options.limit : undefined,
           range: options.range,
+          version: options.version,
+          stream: options.stream,
+          basis: options.basis,
+          from: options.from,
+          to: options.to,
+          aggregation: options.aggregation,
         },
       },
     );
   }
 
+  iterateRankHistoryExport(
+    projectId: ProjectId,
+    options: ExportRankHistoryReportJsonOptions,
+    requestOptions?: RequestOptions,
+  ): AsyncGenerator<RankHistoryReportRecord, void, undefined>;
+  iterateRankHistoryExport(
+    projectId: ProjectId,
+    options?: ExportRankHistoryJsonOptions,
+    requestOptions?: RequestOptions,
+  ): AsyncGenerator<RankHistoryExportRow, void, undefined>;
   /** @deprecated Use `client.rankChecks.history.iterate()`. */
   iterateRankHistoryExport(
     projectId: ProjectId,
-    options: ExportRankHistoryJsonOptions = {},
+    options: ExportRankHistoryJsonOptions | ExportRankHistoryReportJsonOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return iterateCursorPagination<
+      RankHistoryExportRow | RankHistoryReportRecord,
+      ExportRankHistoryJsonOptions | ExportRankHistoryReportJsonOptions
+    >((pageOptions) => {
+      const { version: _version, ...page } = pageOptions;
+      return options.version === "2"
+        ? this.exportRankHistory(
+            projectId,
+            { ...page, version: "2", format: "json" },
+            requestOptions,
+          )
+        : this.exportRankHistory(
+            projectId,
+            { ...page, ...(options.version ? { version: options.version } : {}), format: "json" },
+            requestOptions,
+          );
+    }, options);
+  }
+
+  /** Read every page while preserving the same frozen report metadata.
+   * @deprecated Use `client.rankChecks.history.exportAll()`. */
+  exportAllRankHistoryReport(
+    projectId: ProjectId,
+    options: ExportRankHistoryReportJsonOptions,
+    requestOptions?: RequestOptions,
+  ) {
+    return collectRankHistoryReport(
+      (page) => this.exportRankHistory(projectId, page, requestOptions),
+      options,
+    );
+  }
+
+  /** Iterate retained runs without starting checks.
+   * @deprecated Use `client.rankChecks.runs.iterate()`. */
+  iterateRankCheckRuns(
+    projectId: ProjectId,
+    options: ListRankCheckRunsOptions = {},
     requestOptions?: RequestOptions,
   ) {
     return iterateCursorPagination(
-      (pageOptions) =>
-        this.exportRankHistory(
-          projectId,
-          { ...options, ...pageOptions, format: "json" },
-          requestOptions,
-        ),
+      (page) => this.listRankCheckRuns(projectId, page, requestOptions),
       options,
     );
   }
@@ -1332,6 +1446,36 @@ export class BisibilityClient {
       "PATCH",
       `/projects/${encodedPathSegment(projectId)}/sitemap-monitors/${encodedPathSegment(monitorId)}`,
       { ...options, body: input },
+    );
+  }
+
+  /** @deprecated Use `client.rankChecks.runs.list()`. */
+  listRankCheckRuns(
+    projectId: ProjectId,
+    options: ListRankCheckRunsOptions = {},
+    requestOptions?: RequestOptions,
+  ) {
+    return this.request<RankCheckRunReadList>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/rank-check-runs`,
+      {
+        ...requestOptions,
+        query: {
+          segment: options.segment,
+          status: options.status,
+          cursor: options.cursor,
+          limit: options.limit,
+        },
+      },
+    );
+  }
+
+  /** @deprecated Use `client.rankChecks.runs.get()`. */
+  getRankCheckRun(projectId: ProjectId, runId: RankCheckRunId, options?: RequestOptions) {
+    return this.request<RankCheckRunRead>(
+      "GET",
+      `/projects/${encodedPathSegment(projectId)}/rank-check-runs/${encodedPathSegment(runId)}`,
+      options,
     );
   }
 
@@ -2537,7 +2681,9 @@ export class BisibilityClient {
     if (options.auth !== false) {
       headers.set("Authorization", `Bearer ${this.#authorizationToken}`);
     }
-    if (options.idempotencyKey) {
+    if (options.skipIdempotencyKey) {
+      headers.delete("Idempotency-Key");
+    } else if (options.idempotencyKey) {
       headers.set("Idempotency-Key", options.idempotencyKey);
     }
     headers.set("X-Bisibility-Client", CLIENT_ID);
@@ -2647,8 +2793,25 @@ export class BisibilityClient {
       });
     }
 
+    const defaultsPreview =
+      method === "PATCH" &&
+      path.endsWith("/defaults") &&
+      new URL(url).searchParams.get("preview_only") === "true";
     try {
-      validateSuccessResponse(successContractData, method, path, parsed);
+      validateSuccessResponse(
+        successContractData,
+        method,
+        path,
+        parsed,
+        path.endsWith("/exports/rank-history")
+          ? new URL(url).searchParams.get("version") === "2"
+            ? "rank_history_v2"
+            : "rank_history_v1"
+          : defaultsPreview
+            ? "project_defaults_preview"
+            : undefined,
+      );
+      if (defaultsPreview) validateDefaultsPreview(path, parsed);
       validatePublicIdResponse(path, parsed, method);
     } catch (cause) {
       throw new BisibilityResponseError("Bisibility API returned an invalid response contract.", {

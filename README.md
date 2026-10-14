@@ -187,13 +187,13 @@ compatibility delegates until 1.0.
 | `aiVisibility` | `analyze` |
 | `promptExplorer` | `compare` |
 | `siteAudits` | `list`, `run`, `get` |
-| `projects` | `list`, `create`, `get`, `update`, `delete`, `getDefaults`, `updateDefaults` |
+| `projects` | `list`, `create`, `get`, `update`, `delete`, `getDefaults`, `previewDefaults`, `updateDefaults` |
 | `apiKeys` | `list`, `iterate`, `create`, `revoke` |
 | `webhooks` | `list`, `iterate`, `create`, `update`, `delete` |
 | `keywords` | `list`, `iterate`, `add`, `get`, `update`, `setTargetUrl`, `delete`, `bulkUpdate`, `match`, `research`, plus `suggestions.list`, `metrics.get` |
 | `backlinks` | `analyze`, `extendSnapshot` |
 | `domainOverview` | `analyze`, `history`, `keywords`, `pages` |
-| `rankChecks` | `list`, `iterate`, `run`, `getResult`, plus `history.export`, `history.iterate` |
+| `rankChecks` | `list`, `iterate`, `run`, `getResult`, plus `runs.list`, `runs.get`, `history.export`, `history.iterate` |
 | `sitemapMonitors` | `list`, `update` |
 | `signals` | `list`, `iterate`, `create` |
 | `analytics` | `overview.get`, `traffic.list`, `traffic.sync`, `searchPerformance.list` |
@@ -550,3 +550,67 @@ Site backlinks normally have 12 history months. A successful partial snapshot ha
 Page scope does not request history. Missing availability metadata uses the legacy default.
 A failed summary remains an HTTP error with current-response evidence in problem `details`:
 `cost_cents: null` is an unknown total, while `known_summary_cost_cents` is confirmed.
+
+### Retained rank-check runs
+
+Read execution state through `bisibility.rankChecks.runs.list(projectId, { segment: "history" })`
+and `bisibility.rankChecks.runs.get(projectId, runId)`. Listing supports `segment` (`history` or
+`planned`), comma-separated `status`, `cursor`, and `limit` filters. A run may be cancelled,
+blocked, deferred, or planned without producing a rank-check observation. Nullable cost and usage
+fields preserve unknown values, and output status fields tolerate future server values.
+
+### Versioned retained history exports
+
+`history.export(projectId, { version: "2", stream: "observations", basis: "observed_at", from, to })`
+returns typed report records and `meta.report`, including frozen scope, quality,
+counts and metric versions. `history.iterate` keeps that selection on every signed
+continuation. Preserve cursors unchanged; changing scope or retained source requires
+a new export. The default remains legacy v1 rows.
+
+The `attempts` stream uses `recorded_at` and includes logical checks plus actual
+retained run/item variants, including cancelled, deferred and blocked execution
+without a check. Project-only runs explicitly lack a proved keyword cohort.
+`unresolved_membership_count` reports such omissions from selected exports.
+Observations contain bounded `normalized_items`; CID values stay opaque strings,
+and raw provider fragments are excluded. Item arrays have retained-only completeness,
+and paginate with their parent observation. Oversized sources fail with `413`.
+CSV is a complete bounded manifest and accepts no continuation.
+
+
+### Retained Local monitoring reads
+
+The unreleased Local APIs expose `listLocalMonitorRuns`, `getLocalMonitorRunResults`,
+`listLocalMonitorPointListings`, `listLocalMonitorPointHistory` and `exportLocalMonitorRun`.
+Use original `lmn`, `lmr` and `lmt` IDs. History options are `asOf`, `from`, `to`
+(canonical UTC milliseconds) and `cursor` (1..8000 characters); windows select
+`occurrence_created_at`. Every page has fresh server authorization. Reuse the full
+selection with a returned signed cursor. Source/policy conflicts require a new selection.
+Result/listing DTOs preserve unknown/null quality, exact string CID and source axes.
+Future output metadata enum values remain strings; invalid inputs and report versions
+are rejected. Local exports support JSON `local-point-report-v1` or CSV and audit each
+successful response. No read launches paid work or initializes accounting.
+
+These APIs are unreleased additions to the published package.
+
+### Reviewed project defaults
+
+Use `projects.previewDefaults(projectId, patch)` to read a signed draft through the existing
+PATCH route with `preview_only=true`. It returns the proposed settings, impact, source hash,
+opaque string revision, and preview token without saving settings or starting provider work.
+Preview requests omit command idempotency headers so a later save receives its own receipt.
+After reviewing that draft, send the same patch to `projects.updateDefaults` with
+`review: { expected_source_hash, expected_revision, preview_token, idempotency_key, confirmed: true }`.
+The SDK preserves that command key when retrying a lost response. Keep the exact body and key;
+a 409 requires a fresh preview, while a 428 means the review is missing. Server permission is
+rechecked on preview, commit, and replay.
+
+Preview and updates carrying review require capabilities to advertise
+`features.reviewed_project_defaults: "v1"`. Missing, malformed, or unknown markers stop the
+operation before PATCH, since older servers may ignore `preview_only`. Ordinary updates without
+review preserve legacy behavior; current servers can still require review and return a 428.
+
+### Complete retained reports
+
+`client.rankChecks.history.exportAll(projectId, { version: "2", format: "json" })` reads all cursor pages of one frozen report, preserving quality, scope, original timestamps, and the report metadata. A changing report or a repeated cursor stops collection instead of merging unrelated evidence.
+
+`client.rankChecks.runs.iterate(projectId)` yields retained executions, including blocked and cancelled runs without observations. `client.localMonitors.history`, `results`, `listings`, `pointHistory`, and `export` read previously recorded Local monitor data. These namespaces do not start scans or change schedules; the flat Local methods remain available for compatibility.

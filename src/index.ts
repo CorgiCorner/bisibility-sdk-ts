@@ -165,6 +165,9 @@ export type {
   EstimateKeywordResearchOptions,
   ExportRankHistoryCsvOptions,
   ExportRankHistoryJsonOptions,
+  ExportRankHistoryReportJsonOptions,
+  RankHistoryReportResponse,
+  RankHistoryReportRecord,
   FetchLike,
   FlatCostEstimate,
   FlatProviderRate,
@@ -375,3 +378,11 @@ export type { AiResearchCatalog } from "./ai-research-catalog.js";
 export type * from "./ai-tracking.js";
 
 export type * from "./ai-tracking-suggestions.js";
+
+export type * from "./rank-history-report.js";
+export type * from "./rank-history-report-metadata.js";
+
+export type * from "./local-monitors.js";
+export type * from "./rank-check-runs.js";
+export type * from "./defaults-review.js";
+export type { LocalMonitorId, LocalMonitorRunId, LocalMeasurementTargetId } from "./types.js";

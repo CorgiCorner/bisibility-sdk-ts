@@ -4,6 +4,8 @@ import { BisibilityClient } from "../src/client.js";
 type Callable = (...args: unknown[]) => unknown;
 
 const resourceMethods = {
+  "rankChecks.history.exportAll": "exportAllRankHistoryReport",
+  "rankChecks.runs.iterate": "iterateRankCheckRuns",
   "projectContext.get": "getProjectContext",
   "projectContext.update": "updateProjectContext",
   "agentReports.list": "listAgentReports",
@@ -78,6 +80,7 @@ const resourceMethods = {
   "projects.delete": "deleteProject",
   "projects.get": "getProject",
   "projects.getDefaults": "getProjectDefaults",
+  "projects.previewDefaults": "previewProjectDefaults",
   "projects.list": "listProjects",
   "projects.update": "updateProject",
   "projects.updateDefaults": "updateProjectDefaults",
@@ -91,6 +94,8 @@ const resourceMethods = {
   "providers.test": "testProviderConnection",
   "providers.updateSettings": "updateProviderSettings",
   "rankChecks.getResult": "getRankCheckResult",
+  "rankChecks.runs.list": "listRankCheckRuns",
+  "rankChecks.runs.get": "getRankCheckRun",
   "rankChecks.history.export": "exportRankHistory",
   "rankChecks.history.iterate": "iterateRankHistoryExport",
   "rankChecks.iterate": "iterateRankChecks",
@@ -127,6 +132,12 @@ const resourceMethods = {
 } as const;
 
 const customResourceMethods = [
+  "localMonitors.history",
+  "localMonitors.results",
+  "localMonitors.listings",
+  "localMonitors.pointHistory",
+  "localMonitors.export",
+
   "alerts.markAllRead",
   "apiKeys.create",
   "apiKeys.iterate",
@@ -139,6 +150,7 @@ const customResourceMethods = [
 ] as const;
 
 const topLevelResources = [
+  "localMonitors",
   "agentReports",
   "projectContext",
   "aiVisibility",

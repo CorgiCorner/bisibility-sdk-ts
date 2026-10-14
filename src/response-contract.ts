@@ -14,6 +14,7 @@ type Schema =
 export interface SuccessContractData {
   operations: Record<string, Schema>;
   nodes: Schema[];
+  variants?: Record<string, Schema>;
 }
 
 function matches(value: unknown, schema: Schema, nodes: Schema[]): boolean {
@@ -48,6 +49,7 @@ export function validateSuccessResponse(
   method: string,
   path: string,
   value: unknown,
+  variant?: string,
 ) {
   const pathParts = path.split("/");
   const entry = Object.entries(contracts.operations).find(([operation]) => {
@@ -60,7 +62,9 @@ export function validateSuccessResponse(
     );
   });
   if (!entry) throw new TypeError(`No success response contract for ${method} ${path}.`);
-  if (!matches(value, entry[1], contracts.nodes)) {
+  const selected = variant ? contracts.variants?.[variant] : entry[1];
+  if (!selected) throw new TypeError(`No success response variant ${variant}.`);
+  if (!matches(value, selected, contracts.nodes)) {
     throw new TypeError(`Invalid required response envelope or value for ${method} ${path}.`);
   }
 }

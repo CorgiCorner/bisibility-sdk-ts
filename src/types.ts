@@ -9,6 +9,9 @@ export type ConnectionId = PublicIdForPrefix<"conn">;
 export type IngestHookId = PublicIdForPrefix<"dwh">;
 export type InviteId = PublicIdForPrefix<"inv">;
 export type KeywordId = PublicIdForPrefix<"kw">;
+export type LocalMonitorId = PublicIdForPrefix<"lmn">;
+export type LocalMonitorRunId = PublicIdForPrefix<"lmr">;
+export type LocalMeasurementTargetId = PublicIdForPrefix<"lmt">;
 export type MembershipId = PublicIdForPrefix<"mbr">;
 export type MigrationTokenId = PublicIdForPrefix<"ferry">;
 export type NotificationId = PublicIdForPrefix<"ntf">;
@@ -1036,35 +1039,7 @@ export interface KeywordMetricsResponse {
   total_count: number;
 }
 
-export type RankHistoryExportRange = "30" | "90" | "all";
-
-export type RankHistoryExportGranularity = "daily" | "weekly";
-
-export interface RankHistoryExportRow {
-  checked_at: string;
-  id: RankCheckId;
-  keyword: string;
-  keyword_id: KeywordId;
-  position: number | null;
-  previous_position: number | null;
-  ranking_url: string | null;
-}
-
-export type RankHistoryExportResponse = ListResponse<RankHistoryExportRow>;
-
-interface RankHistoryExportOptions {
-  granularity?: RankHistoryExportGranularity;
-  keywordIds?: readonly KeywordId[];
-  range?: RankHistoryExportRange;
-}
-
-export interface ExportRankHistoryJsonOptions extends PaginationOptions, RankHistoryExportOptions {
-  format?: "json";
-}
-
-export interface ExportRankHistoryCsvOptions extends RankHistoryExportOptions {
-  format: "csv";
-}
+export type * from "./rank-history-export.js";
 
 export type SitemapMonitorStatus = "active" | "disabled" | "pending";
 
@@ -1097,6 +1072,19 @@ export interface RankCheckAttempt {
 }
 
 export interface RankCheck {
+  error_code?: string | null;
+  usage?: {
+    quantity: number | null;
+    status: "confirmed" | "unconfirmed";
+    unit: "operations" | "cents";
+  };
+  run?: {
+    id: RankCheckRunId;
+    started_at: string | null;
+    finished_at: string | null;
+    status: string;
+    trigger: string;
+  } | null;
   attempts: RankCheckAttempt[] | null;
   checked_at: string;
   cost_cents: number | null;
@@ -2219,6 +2207,8 @@ export interface Capability {
 }
 
 export interface CapabilitiesResponse extends DataResponse<Capability[]> {
+  /** Raw protocol advertisement; feature guards validate markers without affecting legacy calls. */
+  features?: unknown;
   /**
    * API contracts advertised by version-aware servers.
    * Absent on older self-hosted servers.

@@ -1,4 +1,5 @@
 import { validateAiTrackingResponse } from "./ai-tracking-validation.js";
+import { validateLocalMonitorResponse } from "./local-monitor-id-contract.js";
 import { type PublicIdPrefix, isPublicIdOfType, publicIdExpectation } from "./public-id.js";
 
 type QueryValue = boolean | Date | number | string | null | undefined;
@@ -712,8 +713,16 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
   if (first === "projects" && second) {
     assertId(second, "prj", "projectId");
   }
+  if (first === "projects" && third === "local-monitors") {
+    assertId(fourth, "lmn", "monitorId");
+    if (route[5]) assertId(route[5], "lmr", "runId");
+    if (route[6] === "points") assertId(route[7], "lmt", "targetId");
+  }
   if (first === "keywords" && second && second !== "bulk") {
     assertId(second, "kw", "keywordId");
+  }
+  if (first === "projects" && third === "rank-check-runs" && fourth) {
+    assertId(fourth, "rcr", "runId");
   }
   if (first === "rank-checks" && second) assertId(second, "check", "checkId");
   if (first === "alert-rules" && second) assertId(second, "alr", "ruleId");
@@ -814,9 +823,24 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
 /** Validates ID-bearing public response fields for resources with contextual IDs. */
 export function validatePublicIdResponse(path: string, response: unknown, method?: string) {
   validateAiTrackingResponse(path, response);
+  validateLocalMonitorResponse(path, response);
   const route = segments(path);
   const [first, second, third, fourth, fifth] = route;
   const requestMethod = method?.toUpperCase();
+  if (first === "projects" && third === "rank-check-runs") {
+    const body = object(response);
+    const runs = Array.isArray(body?.data) ? body.data : [body];
+    for (const value of runs) {
+      const run = object(value);
+      assertId(run?.id, "rcr", "run.id");
+      assertId(run?.project_id, "prj", "run.project_id");
+      assertOptionalId(run?.parent_run_id, "rcr", "run.parent_run_id");
+      if (run?.project_id !== second || (fourth && run?.id !== fourth)) {
+        throw new TypeError("Rank-check run response does not match its requested scope.");
+      }
+    }
+    return;
+  }
   if (first === "cloud" && second === "import") {
     if (third === "compatibility" && requestMethod === "GET") {
       assertCloudImportCompatibilityResponse(response);

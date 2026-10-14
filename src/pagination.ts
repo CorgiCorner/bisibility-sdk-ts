@@ -1,3 +1,4 @@
+import { BisibilityError } from "./errors.js";
 import type { ListResponse, PaginationOptions } from "./types.js";
 
 export type CursorPageFetcher<T, Options extends PaginationOptions> = (
@@ -10,8 +11,13 @@ export async function* iterateCursorPagination<T, Options extends PaginationOpti
   options: Options,
 ): AsyncGenerator<T, void, undefined> {
   let cursor = options.cursor;
+  const seen = new Set<string>();
 
   do {
+    if (cursor !== undefined) {
+      if (seen.has(cursor)) throw new BisibilityError("API returned a repeated pagination cursor.");
+      seen.add(cursor);
+    }
     const { cursor: _initialCursor, ...filters } = options;
     const pageOptions = (cursor === undefined ? filters : { ...filters, cursor }) as Options;
     const page = await fetchPage(pageOptions);

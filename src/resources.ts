@@ -118,6 +118,7 @@ export interface ClientResourceNamespaces {
     update: BisibilityClient["updateProject"];
     delete: BisibilityClient["deleteProject"];
     getDefaults: BisibilityClient["getProjectDefaults"];
+    previewDefaults: BisibilityClient["previewProjectDefaults"];
     updateDefaults: BisibilityClient["updateProjectDefaults"];
   }>;
   readonly apiKeys: Readonly<{
@@ -180,14 +181,27 @@ export interface ClientResourceNamespaces {
     keywords: BisibilityClient["loadDomainOverviewKeywords"];
     pages: BisibilityClient["loadDomainOverviewPages"];
   }>;
+  readonly localMonitors: Readonly<{
+    history: BisibilityClient["listLocalMonitorRuns"];
+    results: BisibilityClient["getLocalMonitorRunResults"];
+    listings: BisibilityClient["listLocalMonitorPointListings"];
+    pointHistory: BisibilityClient["listLocalMonitorPointHistory"];
+    export: BisibilityClient["exportLocalMonitorRun"];
+  }>;
   readonly rankChecks: Readonly<{
     list: BisibilityClient["listRankChecks"];
     iterate: BisibilityClient["iterateRankChecks"];
     run: BisibilityClient["runRankCheck"];
     runAndWait: BisibilityClient["runRankCheckAndWait"];
     getResult: BisibilityClient["getRankCheckResult"];
+    runs: Readonly<{
+      list: BisibilityClient["listRankCheckRuns"];
+      iterate: BisibilityClient["iterateRankCheckRuns"];
+      get: BisibilityClient["getRankCheckRun"];
+    }>;
     history: Readonly<{
       export: BisibilityClient["exportRankHistory"];
+      exportAll: BisibilityClient["exportAllRankHistoryReport"];
       iterate: BisibilityClient["iterateRankHistoryExport"];
     }>;
   }>;
@@ -341,6 +355,7 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     update: delegate(client, "updateProject"),
     delete: delegate(client, "deleteProject"),
     getDefaults: delegate(client, "getProjectDefaults"),
+    previewDefaults: delegate(client, "previewProjectDefaults"),
     updateDefaults: delegate(client, "updateProjectDefaults"),
   });
   const apiKeys: ClientResourceNamespaces["apiKeys"] = Object.freeze({
@@ -399,14 +414,27 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     keywords: delegate(client, "loadDomainOverviewKeywords"),
     pages: delegate(client, "loadDomainOverviewPages"),
   });
+  const localMonitors = Object.freeze({
+    history: delegate(client, "listLocalMonitorRuns"),
+    results: delegate(client, "getLocalMonitorRunResults"),
+    listings: delegate(client, "listLocalMonitorPointListings"),
+    pointHistory: delegate(client, "listLocalMonitorPointHistory"),
+    export: delegate(client, "exportLocalMonitorRun"),
+  });
   const rankChecks = Object.freeze({
     list: delegate(client, "listRankChecks"),
     iterate: delegate(client, "iterateRankChecks"),
     run: delegate(client, "runRankCheck"),
     runAndWait: delegate(client, "runRankCheckAndWait"),
     getResult: delegate(client, "getRankCheckResult"),
+    runs: Object.freeze({
+      list: delegate(client, "listRankCheckRuns"),
+      iterate: delegate(client, "iterateRankCheckRuns"),
+      get: delegate(client, "getRankCheckRun"),
+    }),
     history: Object.freeze({
       export: delegate(client, "exportRankHistory"),
+      exportAll: delegate(client, "exportAllRankHistoryReport"),
       iterate: delegate(client, "iterateRankHistoryExport"),
     }),
   });
@@ -560,6 +588,7 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     backlinks,
     domainOverview,
     rankChecks,
+    localMonitors,
     sitemapMonitors,
     signals,
     analytics,
