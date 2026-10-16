@@ -1596,11 +1596,12 @@ describe("BisibilityClient protected resources", () => {
   });
 
   it("analyzes backlinks with camelCase options mapped to snake_case query parameters", async () => {
-    const body: BacklinksResponse = {
+    const body: BacklinksSnapshotResponse = {
       data: JSON.parse(
         readFileSync(new URL("./fixtures/stored-reports.json", import.meta.url), "utf8"),
       ).backlinks,
     };
+    body.data.snapshot_ref = "opaque-snapshot-revision-1";
     fetchMock.mockResolvedValueOnce(jsonResponse(body));
 
     await expect(
@@ -1742,16 +1743,18 @@ describe("BisibilityClient protected resources", () => {
     expect(call.init?.body).toBeUndefined();
   });
 
-  it("loads more backlink rows with a snake_case JSON body", async () => {
+  it("loads more backlink rows with a snake_case JSON body and parses the replacement reference", async () => {
     const body: BacklinksSnapshotResponse = {
       data: JSON.parse(
         readFileSync(new URL("./fixtures/stored-reports.json", import.meta.url), "utf8"),
       ).backlinks,
     };
+    body.data.snapshot_ref = "opaque-snapshot-revision-2";
     fetchMock.mockResolvedValueOnce(jsonResponse(body));
 
     await expect(
       client.loadMoreBacklinkRows("prj_a00000000000000000000000", {
+        snapshotRef: "opaque-snapshot-revision-1",
         includeSubdomains: true,
         limit: 300,
         target: "example.com",
@@ -1765,12 +1768,74 @@ describe("BisibilityClient protected resources", () => {
     );
     expect(call.init?.method).toBe("POST");
     expectJsonBody(call.init, {
+      snapshot_ref: "opaque-snapshot-revision-1",
       target: "example.com",
       target_scope: "site",
       include_subdomains: true,
       limit: 300,
     });
   });
+
+  it("passes the latest response reference through successive snapshot extensions", async () => {
+    const snapshot: BacklinksSnapshot = JSON.parse(
+      readFileSync(new URL("./fixtures/stored-reports.json", import.meta.url), "utf8"),
+    ).backlinks;
+    for (const snapshot_ref of ["opaque-revision-1", "opaque-revision-2", "opaque-revision-3"]) {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ data: { ...snapshot, snapshot_ref } }));
+    }
+
+    let result = await client.backlinks.analyze("prj_a00000000000000000000000", {
+      target: "example.com",
+    });
+    expect(result.data.snapshot_ref).toBe("opaque-revision-1");
+    for (const revision of [2, 3]) {
+      const snapshotRef = result.data.snapshot_ref;
+      if (!snapshotRef) throw new Error("Expected snapshot reference");
+      result = await client.backlinks.extendSnapshot("prj_a00000000000000000000000", {
+        snapshotRef,
+        includeSubdomains: true,
+        limit: 100,
+        target: "example.com",
+        targetScope: "site",
+      });
+      expect(JSON.parse(lastCall(fetchMock).init?.body as string).snapshot_ref).toBe(
+        `opaque-revision-${revision - 1}`,
+      );
+      expect(result.data.snapshot_ref).toBe(`opaque-revision-${revision}`);
+    }
+  });
+
+  it.each([undefined, "stale-reference"])(
+    "surfaces snapshot_expired as a typed API error for reference %s",
+    async (snapshotRef) => {
+      const problem = {
+        type: "https://bisibility.com/problems/snapshot_expired",
+        title: "Snapshot expired",
+        status: 409,
+        detail: "The snapshot reference is missing or stale. Analyze again.",
+      };
+      fetchMock.mockResolvedValueOnce(jsonResponse(problem, { status: 409 }));
+
+      const error = await client.backlinks
+        .extendSnapshot("prj_a00000000000000000000000", {
+          ...(snapshotRef === undefined ? {} : { snapshotRef }),
+          includeSubdomains: true,
+          limit: 100,
+          target: "example.com",
+          targetScope: "site",
+        })
+        .catch((error: unknown) => error);
+
+      expect(error).toBeInstanceOf(BisibilityApiError);
+      expect(error).toMatchObject({ status: 409, problem });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      if (snapshotRef === undefined) {
+        expect(JSON.parse(lastCall(fetchMock).init?.body as string)).not.toHaveProperty(
+          "snapshot_ref",
+        );
+      }
+    },
+  );
 
   it("analyzes Domain Overview with complete camelCase options and decodes a report", async () => {
     const body: DomainOverviewAnalyzeResponse = {

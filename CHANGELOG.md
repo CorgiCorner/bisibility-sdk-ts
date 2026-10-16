@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.17.1 - 2026-10-16
+
+- Send the current snapshot reference when extending backlinks snapshots and expose replacement references in analyze and append responses.
+
 ## 0.17.0 - 2026-10-14
 
 - Add retained rank-check run reads and versioned rank-history reports with quality, scope, original timestamps, and stable pagination.

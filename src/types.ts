@@ -621,6 +621,8 @@ export interface BacklinkRow {
  * `estimate` discriminant.
  */
 export interface BacklinksSnapshot {
+  /** Opaque reference for this revision. Pass it unchanged when extending the snapshot. */
+  snapshot_ref?: string;
   cached: boolean;
   cached_until: string;
   cost_cents: number;
@@ -698,6 +700,11 @@ export interface LoadBacklinksSnapshotOptions extends AnalyzeBacklinksOptions {
  * write scope and spends provider budget.
  */
 export interface LoadMoreBacklinkRowsOptions {
+  /**
+   * Current reference from analyze or the latest append response. The server requires it;
+   * missing or stale references return 409 snapshot_expired before any paid I/O.
+   */
+  snapshotRef?: string;
   includeSubdomains: boolean;
   limit: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 1000;
   target: string;

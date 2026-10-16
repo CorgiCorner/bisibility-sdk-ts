@@ -1149,7 +1149,8 @@ export class BisibilityClient {
 
   /**
    * Load more rows into an unexpired backlinks snapshot. This operation requires API write scope
-   * and spends provider budget.
+   * and spends provider budget. Pass the latest response's snapshot_ref as snapshotRef; each
+   * successful append returns a replacement. Missing or stale references return 409 snapshot_expired.
    * @deprecated Use `client.backlinks.extendSnapshot()`.
    */
   loadMoreBacklinkRows(
@@ -1163,6 +1164,7 @@ export class BisibilityClient {
       {
         ...requestOptions,
         body: {
+          snapshot_ref: options.snapshotRef,
           target: options.target,
           target_scope: options.targetScope,
           include_subdomains: options.includeSubdomains,

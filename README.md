@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> Current versions are listed on [npm](https://www.npmjs.com/package/@bisibility/sdk).
+> SDK version: 0.17.1. Published versions are listed on [npm](https://www.npmjs.com/package/@bisibility/sdk).
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -355,6 +355,29 @@ if (isBacklinksEstimate(result.data)) console.log(result.data.estimated_cost_cen
 As with keyword research, a literal `estimateOnly: true` resolves to `BacklinksEstimate` and a
 literal `false` or an omitted `estimateOnly` resolves to `BacklinksSnapshot`.
 `backlinks.extendSnapshot` always returns a `BacklinksSnapshot`.
+
+To load more rows, pass the opaque `snapshot_ref` from the latest successful analyze or append
+response as `snapshotRef`. Each append returns a replacement reference for the next call:
+
+```ts
+let snapshot = report.data;
+if (!snapshot.snapshot_ref) throw new Error("Analyze again to obtain a current snapshot reference.");
+const appended = await bisibility.backlinks.extendSnapshot(projectId, {
+  snapshotRef: snapshot.snapshot_ref,
+  includeSubdomains: snapshot.include_subdomains,
+  limit: 100,
+  target: snapshot.target,
+  targetScope: snapshot.target_scope
+});
+snapshot = appended.data; // Use this snapshot_ref for the next append.
+```
+
+The append response contains only newly fetched rows and updated cumulative counts and cost.
+The server requires a current reference even though the SDK option is optional for compatibility.
+A missing, stale, invalid, expired, or out-of-scope reference returns `409 snapshot_expired` before
+any paid I/O. The SDK exposes it as `BisibilityApiError` with `status === 409` and
+`problem.type === "https://bisibility.com/problems/snapshot_expired"`; analyze again to obtain a
+current snapshot before retrying.
 
 `keywords.metrics.get` hydrates provider metrics for one to 700 keywords. Its input mirrors the API
 request body, cached rows do not contribute to `cost_cents`, and API write scope is required:
