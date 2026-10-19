@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> SDK version: 0.17.1. Published versions are listed on [npm](https://www.npmjs.com/package/@bisibility/sdk).
+> SDK version: 0.17.2. Published versions are listed on [npm](https://www.npmjs.com/package/@bisibility/sdk).
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -483,6 +483,20 @@ const estimate = await bisibility.pricing.estimate({
 });
 // estimate.data.monthly_cost_usd
 ```
+
+## Account analytics consent
+
+Account analytics permission is separate from browser replay. A null decision timestamp
+means pending. These authenticated account operations require a personal token; the server
+also enforces supported first-party authorization. An update sends only the explicit
+analytics boolean and preserves a refusal (`false`) in the request.
+
+```ts
+const consent = await bisibility.account.analyticsConsent.get();
+await bisibility.account.analyticsConsent.update({ analytics: false });
+```
+
+`getAnalyticsConsent()` and `updateAnalyticsConsent()` are also available as flat delegates.
 
 ## Errors
 

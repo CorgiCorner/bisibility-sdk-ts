@@ -21,6 +21,8 @@ const resourceMethods = {
   "researchReports.get": "getStoredResearchReport",
   "providers.budgets.list": "listProviderBudgets",
   "providers.budgets.update": "updateProviderBudgets",
+  "account.analyticsConsent.get": "getAnalyticsConsent",
+  "account.analyticsConsent.update": "updateAnalyticsConsent",
   "account.get": "getMe",
   "account.tokens.create": "createMyToken",
   "account.tokens.list": "listMyTokens",

@@ -103,6 +103,10 @@ export interface ClientResourceNamespaces {
     search: BisibilityClient["searchLocations"];
   }>;
   readonly account: Readonly<{
+    analyticsConsent: Readonly<{
+      get: BisibilityClient["getAnalyticsConsent"];
+      update: BisibilityClient["updateAnalyticsConsent"];
+    }>;
     get: BisibilityClient["getMe"];
     update: BisibilityClient["updateMe"];
     tokens: Readonly<{
@@ -340,6 +344,10 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
   });
   const locations = Object.freeze({ search: delegate(client, "searchLocations") });
   const account = Object.freeze({
+    analyticsConsent: Object.freeze({
+      get: delegate(client, "getAnalyticsConsent"),
+      update: delegate(client, "updateAnalyticsConsent"),
+    }),
     get: delegate(client, "getMe"),
     update: delegate(client, "updateMe"),
     tokens: Object.freeze({

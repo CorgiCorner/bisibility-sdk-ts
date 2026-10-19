@@ -386,3 +386,5 @@ export type * from "./local-monitors.js";
 export type * from "./rank-check-runs.js";
 export type * from "./defaults-review.js";
 export type { LocalMonitorId, LocalMonitorRunId, LocalMeasurementTargetId } from "./types.js";
+
+export type * from "./account-consent.js";

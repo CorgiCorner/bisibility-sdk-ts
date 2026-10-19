@@ -1,3 +1,4 @@
+import type { AccountAnalyticsConsent, UpdateAnalyticsConsentInput } from "./account-consent.js";
 import type { AiResearchCatalog } from "./ai-research-catalog.js";
 import { type AiTrackingMethods, installAiTrackingMethods } from "./ai-tracking-methods.js";
 import {
@@ -2523,6 +2524,19 @@ export class BisibilityClient {
       `/cloud/import/sessions/${encodedPathSegment(sessionId)}/finalize`,
       options,
     );
+  }
+
+  /** @deprecated Use `client.account.analyticsConsent.get()`. */
+  getAnalyticsConsent(options?: RequestOptions) {
+    return this.request<AccountAnalyticsConsent>("GET", "/me/analytics-consent", options);
+  }
+
+  /** @deprecated Use `client.account.analyticsConsent.update()`. */
+  updateAnalyticsConsent(input: UpdateAnalyticsConsentInput, options?: RequestOptions) {
+    return this.request<AccountAnalyticsConsent>("PUT", "/me/analytics-consent", {
+      ...options,
+      body: input,
+    });
   }
 
   private buildUrl(path: string, query?: QueryParams) {
