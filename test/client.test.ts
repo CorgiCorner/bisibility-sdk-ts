@@ -1018,10 +1018,15 @@ describe("BisibilityClient protected resources", () => {
         {
           domain: "example.com",
           id: "prj_a00000000000000000000000",
+          missing_provider_keys: [
+            { capability: "rank_check", providers: ["dataforseo", "serpapi"] },
+          ],
           name: "Example",
+          provider_keys_required: true,
           role: "owner",
         },
       ],
+      provider_keys_required: true,
     } as const;
     const token = {
       created_at: "2026-07-12T00:00:00.000Z",

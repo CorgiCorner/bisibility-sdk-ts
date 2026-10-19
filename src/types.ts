@@ -263,10 +263,25 @@ export interface CreateApiKeyInput {
 
 export type MembershipRole = "admin" | "auditor" | "member" | "owner" | "viewer";
 
+/** A paid capability that a project may have to run on its own provider keys. */
+export type OwnKeyCapability = OpenString<
+  "ai_tracking" | "backlinks" | "domain_overview" | "keyword_research" | "rank_check"
+>;
+
+/** A paid capability the project cannot run on its own keys, with the providers that would serve it. */
+export interface MissingProviderKey {
+  capability: OwnKeyCapability;
+  providers: string[];
+}
+
 export interface MeProject {
   domain: string;
   id: ProjectId;
+  /** Empty unless `provider_keys_required` is true. Keys are connected on the web. */
+  missing_provider_keys: MissingProviderKey[];
   name: string;
+  /** True when the owner account runs paid provider work only on its own keys. */
+  provider_keys_required: boolean;
   role: MembershipRole;
 }
 
@@ -275,6 +290,8 @@ export interface Me {
   id: UserId;
   name: string;
   projects: MeProject[];
+  /** True when this account runs paid provider work only on its own provider keys. */
+  provider_keys_required: boolean;
 }
 
 export interface UpdateMeInput {
