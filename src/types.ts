@@ -6,6 +6,7 @@ export type AuditId = PublicIdForPrefix<"audit">;
 export type CloudImportJobId = PublicIdForPrefix<"imp">;
 export type CompetitorId = PublicIdForPrefix<"cmp">;
 export type ConnectionId = PublicIdForPrefix<"conn">;
+export type DevicePushTokenId = PublicIdForPrefix<"dpt">;
 export type IngestHookId = PublicIdForPrefix<"dwh">;
 export type InviteId = PublicIdForPrefix<"inv">;
 export type KeywordId = PublicIdForPrefix<"kw">;
@@ -296,6 +297,37 @@ export interface Me {
 
 export interface UpdateMeInput {
   name: string;
+}
+
+export interface DeleteMeInput {
+  /** The account's email address, as confirmation. */
+  confirm_email: string;
+}
+
+export interface MeDeleted {
+  deleted: true;
+}
+
+/** APNs environment of a registered build. */
+export type DevicePushEnvironment = OpenString<"production" | "sandbox">;
+
+export interface DevicePushToken {
+  bundle_id: string;
+  created_at: string;
+  environment: DevicePushEnvironment;
+  id: DevicePushTokenId;
+  last_seen_at: string;
+  /** Last 8 characters of the token; the token itself is never returned. */
+  token_suffix: string;
+}
+
+export interface RegisterDevicePushTokenInput {
+  /** App bundle identifier, for example com.example.app. */
+  bundle_id: string;
+  /** APNs environment of the build: sandbox for development builds. */
+  environment: "production" | "sandbox";
+  /** APNs device token as hexadecimal. */
+  token: string;
 }
 
 export type PersonalAccessTokenScope = "admin" | "read" | "write";

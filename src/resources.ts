@@ -109,6 +109,12 @@ export interface ClientResourceNamespaces {
     }>;
     get: BisibilityClient["getMe"];
     update: BisibilityClient["updateMe"];
+    delete: BisibilityClient["deleteMe"];
+    pushTokens: Readonly<{
+      list: BisibilityClient["listDevicePushTokens"];
+      register: BisibilityClient["registerDevicePushToken"];
+      delete: BisibilityClient["deleteDevicePushToken"];
+    }>;
     tokens: Readonly<{
       list: BisibilityClient["listMyTokens"];
       create: BisibilityClient["createMyToken"];
@@ -350,6 +356,12 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     }),
     get: delegate(client, "getMe"),
     update: delegate(client, "updateMe"),
+    delete: delegate(client, "deleteMe"),
+    pushTokens: Object.freeze({
+      list: delegate(client, "listDevicePushTokens"),
+      register: delegate(client, "registerDevicePushToken"),
+      delete: delegate(client, "deleteDevicePushToken"),
+    }),
     tokens: Object.freeze({
       list: delegate(client, "listMyTokens"),
       create: delegate(client, "createMyToken"),

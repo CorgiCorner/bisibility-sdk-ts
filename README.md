@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> SDK version: 0.17.3. Published versions are listed on [npm](https://www.npmjs.com/package/@bisibility/sdk).
+> SDK version: 0.17.4. Published versions are listed on [npm](https://www.npmjs.com/package/@bisibility/sdk).
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -181,7 +181,7 @@ compatibility delegates until 1.0.
 | `system` | `getHealth`, `getLiveness`, `getReadiness`, `getCapabilities`, `getOpenApi`, `getLlmsText` |
 | `pricing` | `getRates`, `estimate` |
 | `locations` | `search` |
-| `account` | `get`, `update`, plus `tokens.list`, `tokens.create`, `tokens.revoke` |
+| `account` | `get`, `update`, `delete`, plus `tokens.list`, `tokens.create`, `tokens.revoke`, `pushTokens.list`, `pushTokens.register`, `pushTokens.delete` |
 | `projectContext` | `get`, `update` |
 | `agentReports` | `list`, `create`, `get` |
 | `aiVisibility` | `analyze` |

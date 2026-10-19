@@ -45,6 +45,7 @@ describe("public ID registry", () => {
       "check",
       "cmp",
       "conn",
+      "dpt",
       "dwh",
       "ferry",
       "imp",

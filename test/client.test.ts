@@ -1075,6 +1075,82 @@ describe("BisibilityClient protected resources", () => {
     });
   });
 
+  it("accepts unknown open-string values but still rejects wrong types", async () => {
+    const me = (capability: unknown) => ({
+      email: "owner@example.com",
+      id: "usr_t00000000000000000000000",
+      name: "Owner",
+      projects: [
+        {
+          domain: "example.com",
+          id: "prj_a00000000000000000000000",
+          missing_provider_keys: [{ capability, providers: ["dataforseo"] }],
+          name: "Example",
+          provider_keys_required: true,
+          role: "owner",
+        },
+      ],
+      provider_keys_required: true,
+    });
+    fetchMock.mockResolvedValueOnce(jsonResponse(me("future_capability")));
+    fetchMock.mockResolvedValueOnce(jsonResponse(me(42)));
+
+    await expect(client.getMe()).resolves.toEqual(me("future_capability"));
+    await expect(client.getMe()).rejects.toMatchObject({
+      cause: { message: "Invalid required response envelope or value for GET /me." },
+      name: "BisibilityResponseError",
+    });
+  });
+
+  it("deletes the account and manages device push tokens", async () => {
+    const deviceToken = "0".repeat(64);
+    const pushToken = {
+      bundle_id: "com.example.app",
+      created_at: "2026-10-19T00:00:00.000Z",
+      environment: "sandbox",
+      id: "dpt_a00000000000000000000000",
+      last_seen_at: "2026-10-19T00:00:00.000Z",
+      token_suffix: "0123abcd",
+    } as const;
+    fetchMock.mockResolvedValueOnce(jsonResponse(list([pushToken])));
+    fetchMock.mockResolvedValueOnce(jsonResponse(pushToken));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...pushToken, environment: "future_env" }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: true }));
+
+    await expect(client.account.pushTokens.list()).resolves.toMatchObject({ data: [pushToken] });
+    await expect(
+      client.account.pushTokens.register({
+        bundle_id: "com.example.app",
+        environment: "sandbox",
+        token: deviceToken,
+      }),
+    ).resolves.toEqual(pushToken);
+    await expect(client.account.pushTokens.delete(pushToken.id)).resolves.toMatchObject({
+      environment: "future_env",
+    });
+    await expect(client.account.delete({ confirm_email: "owner@example.com" })).resolves.toEqual({
+      deleted: true,
+    });
+
+    expect(fetchMock.mock.calls.map((call) => [call[1]?.method, call[0]])).toEqual([
+      ["GET", "https://api.test/api/v1/me/push-tokens"],
+      ["POST", "https://api.test/api/v1/me/push-tokens"],
+      ["DELETE", "https://api.test/api/v1/me/push-tokens/dpt_a00000000000000000000000"],
+      ["DELETE", "https://api.test/api/v1/me"],
+    ]);
+    expectJsonBody(fetchMock.mock.calls[1]?.[1], {
+      bundle_id: "com.example.app",
+      environment: "sandbox",
+      token: deviceToken,
+    });
+    expectJsonBody(fetchMock.mock.calls[3]?.[1], { confirm_email: "owner@example.com" });
+
+    await expect(
+      client.deleteDevicePushToken("pat_a00000000000000000000000" as never),
+    ).rejects.toBeInstanceOf(BisibilityConfigurationError);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it("creates projects, project API keys, and webhook endpoints", async () => {
     const createdKey: CreatedApiKey = {
       ...apiKeyResource({ id: "key_x00000000000000000000000", name: "CI" }),

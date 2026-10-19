@@ -10,6 +10,7 @@ export const PUBLIC_ID_RESOURCE_REGISTRY = {
   check: "rankCheck",
   cmp: "competitor",
   conn: "providerConnection",
+  dpt: "devicePushToken",
   dwh: "ingestHook",
   ferry: "migrationToken",
   imp: "cloudImportJob",

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.17.4 - 2026-10-19
+
+- Accept unknown values of open string enums, such as `MissingProviderKey.capability`, in response validation instead of rejecting the response.
+- Add account deletion (`account.delete()`) and device push token operations (`account.pushTokens.list()`, `register()`, `delete()`).
+
 ## 0.17.3 - 2026-10-19
 
 - Add own-provider-key state to `Me` and `MeProject` (`provider_keys_required`, `missing_provider_keys`) so apps can show which paid capabilities need a connected key.

@@ -101,8 +101,11 @@ import type {
   CreatedTeamInvite,
   DataResponse,
   DeleteAlertRuleResponse,
+  DeleteMeInput,
   DeleteSavedKeywordResponse,
   DeleteSavedViewResponse,
+  DevicePushToken,
+  DevicePushTokenId,
   DomainOverviewAnalyzeResponse,
   DomainOverviewEstimate,
   DomainOverviewHistoryResponse,
@@ -149,6 +152,7 @@ import type {
   LoadMoreBacklinkRowsOptions,
   LocationSuggestionsResponse,
   Me,
+  MeDeleted,
   MembershipId,
   MigrationTokenId,
   MigrationTokenListResponse,
@@ -180,6 +184,7 @@ import type {
   RankHistoryReportResponse,
   RankedKeywordSuggestionsResponse,
   ReadinessResponse,
+  RegisterDevicePushTokenInput,
   RemoveCompetitorResponse,
   RequestOptions,
   ResearchKeywordsOptions,
@@ -666,6 +671,34 @@ export class BisibilityClient {
   /** @deprecated Use `client.account.update()`. */
   updateMe(input: UpdateMeInput, options?: RequestOptions) {
     return this.request<Me>("PATCH", "/me", { ...options, body: input });
+  }
+
+  /**
+   * Permanently delete the authenticated account and its owned data. Requires an admin-scope
+   * personal access token, or an app token with `api:write` and a sign-in within 10 minutes.
+   * @deprecated Use `client.account.delete()`.
+   */
+  deleteMe(input: DeleteMeInput, options?: RequestOptions) {
+    return this.request<MeDeleted>("DELETE", "/me", { ...options, body: input });
+  }
+
+  /** @deprecated Use `client.account.pushTokens.list()`. */
+  listDevicePushTokens(options?: RequestOptions) {
+    return this.request<ListResponse<DevicePushToken>>("GET", "/me/push-tokens", options);
+  }
+
+  /** @deprecated Use `client.account.pushTokens.register()`. */
+  registerDevicePushToken(input: RegisterDevicePushTokenInput, options?: RequestOptions) {
+    return this.request<DevicePushToken>("POST", "/me/push-tokens", { ...options, body: input });
+  }
+
+  /** @deprecated Use `client.account.pushTokens.delete()`. */
+  deleteDevicePushToken(pushTokenId: DevicePushTokenId, options?: RequestOptions) {
+    return this.request<DevicePushToken>(
+      "DELETE",
+      `/me/push-tokens/${encodedPathSegment(pushTokenId)}`,
+      options,
+    );
   }
 
   /** @deprecated Use `client.account.tokens.list()`. */

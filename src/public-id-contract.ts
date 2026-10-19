@@ -734,6 +734,9 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
   if (first === "me" && second === "tokens" && third && third !== "current") {
     assertId(third, "pat", "tokenId");
   }
+  if (first === "me" && second === "push-tokens" && third) {
+    assertId(third, "dpt", "pushTokenId");
+  }
   if (first === "cloud" && second === "import" && third === "sessions" && fourth) {
     assertId(fourth, "imp", "sessionId");
   }
