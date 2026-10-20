@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.18.0 - 2026-10-20
+
+- Align the version with the 0.18 release of the Bisibility SDKs, CLI and MCP server. No API changes.
+
 ## 0.17.4 - 2026-10-19
 
 - Accept unknown values of open string enums, such as `MissingProviderKey.capability`, in response validation instead of rejecting the response.
