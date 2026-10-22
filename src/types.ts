@@ -749,6 +749,9 @@ export interface LoadBacklinksSnapshotOptions extends AnalyzeBacklinksOptions {
  * write scope and spends provider budget.
  */
 export interface LoadMoreBacklinkRowsOptions {
+  /** 0 = cached result only. */
+  maxCostCents?: number;
+  estimateOnly?: boolean;
   /**
    * Current reference from analyze or the latest append response. The server requires it;
    * missing or stale references return 409 snapshot_expired before any paid I/O.

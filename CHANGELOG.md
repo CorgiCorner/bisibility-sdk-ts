@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.19.0 - 2026-10-22
+
+- Forward `maxCostCents` and `estimateOnly` from `loadMoreBacklinkRows`, so the next page of backlink rows can be priced or capped before any provider request.
+
 ## 0.18.0 - 2026-10-20
 
 - Align the version with the 0.18 release of the Bisibility SDKs, CLI and MCP server. No API changes.

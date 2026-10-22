@@ -1198,6 +1198,8 @@ export class BisibilityClient {
       {
         ...requestOptions,
         body: {
+          max_cost_cents: options.maxCostCents,
+          estimate_only: options.estimateOnly,
           snapshot_ref: options.snapshotRef,
           target: options.target,
           target_scope: options.targetScope,
