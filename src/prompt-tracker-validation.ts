@@ -1,8 +1,14 @@
-import { hasPublicIdShape } from "./ai-tracking-transport.js";
+import { hasPublicIdShape } from "./prompt-tracker-transport.js";
 /** Tracking namespaces extend resource validation without rewriting the historical ID registry. */
-export function validateAiTrackingResponse(path: string, response: unknown): void {
+export function validatePromptTrackerResponse(path: string, response: unknown): void {
   const parts = path.split("/");
-  if (parts[3] !== "ai-tracking" || !response || typeof response !== "object") return;
+  const area = parts[3];
+  if (
+    (area !== "prompt-tracker" && area !== "prompt-research") ||
+    !response ||
+    typeof response !== "object"
+  )
+    return;
   const container = response as Record<string, unknown>;
   const resource = parts[4];
   const prefix =

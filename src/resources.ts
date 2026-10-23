@@ -75,8 +75,8 @@ export interface ClientResourceNamespaces {
     create: BisibilityClient["createAgentReport"];
     get: BisibilityClient["getAgentReport"];
   }>;
-  readonly aiVisibility: Readonly<{
-    analyze: BisibilityClient["analyzeAiVisibility"];
+  readonly brandVisibility: Readonly<{
+    analyze: BisibilityClient["analyzeBrandVisibility"];
   }>;
   readonly promptExplorer: Readonly<{
     compare: BisibilityClient["compareAiPrompts"];
@@ -523,8 +523,8 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     create: delegate(client, "createAgentReport"),
     get: delegate(client, "getAgentReport"),
   });
-  const aiVisibility = Object.freeze({
-    analyze: delegate(client, "analyzeAiVisibility"),
+  const brandVisibility = Object.freeze({
+    analyze: delegate(client, "analyzeBrandVisibility"),
   });
   const promptExplorer = Object.freeze({
     compare: delegate(client, "compareAiPrompts"),
@@ -620,7 +620,7 @@ export function createResourceNamespaces(client: BisibilityClient): ClientResour
     researchReports,
     projectContext,
     agentReports,
-    aiVisibility,
+    brandVisibility,
     promptExplorer,
     siteAudits,
 

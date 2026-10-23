@@ -1,5 +1,5 @@
-import { validateAiTrackingResponse } from "./ai-tracking-validation.js";
 import { validateLocalMonitorResponse } from "./local-monitor-id-contract.js";
+import { validatePromptTrackerResponse } from "./prompt-tracker-validation.js";
 import { type PublicIdPrefix, isPublicIdOfType, publicIdExpectation } from "./public-id.js";
 
 type QueryValue = boolean | Date | number | string | null | undefined;
@@ -825,7 +825,7 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
 
 /** Validates ID-bearing public response fields for resources with contextual IDs. */
 export function validatePublicIdResponse(path: string, response: unknown, method?: string) {
-  validateAiTrackingResponse(path, response);
+  validatePromptTrackerResponse(path, response);
   validateLocalMonitorResponse(path, response);
   const route = segments(path);
   const [first, second, third, fourth, fifth] = route;
@@ -877,7 +877,7 @@ export function validatePublicIdResponse(path: string, response: unknown, method
     }
     return;
   }
-  if (first === "projects" && (third === "ai-visibility" || third === "prompt-explorer")) {
+  if (first === "projects" && (third === "brand-visibility" || third === "prompt-explorer")) {
     const data = object(object(response)?.data);
     if (data?.estimate === false) assertId(data.report_id, "agr", "data.report_id");
     return;

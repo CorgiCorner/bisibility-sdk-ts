@@ -1,6 +1,5 @@
 import type { AccountAnalyticsConsent, UpdateAnalyticsConsentInput } from "./account-consent.js";
 import type { AiResearchCatalog } from "./ai-research-catalog.js";
-import { type AiTrackingMethods, installAiTrackingMethods } from "./ai-tracking-methods.js";
 import {
   BISIBILITY_API_VERSION,
   BISIBILITY_API_VERSION_HEADER,
@@ -24,6 +23,14 @@ import {
 } from "./errors.js";
 import { type LocalMonitorMethods, installLocalMonitorMethods } from "./local-monitor-methods.js";
 import { iterateCursorPagination } from "./pagination.js";
+import {
+  type PromptResearchSuggestionMethods,
+  installPromptResearchSuggestionMethods,
+} from "./prompt-research-suggestion-methods.js";
+import {
+  type PromptTrackerMethods,
+  installPromptTrackerMethods,
+} from "./prompt-tracker-methods.js";
 import { validatePublicIdRequest, validatePublicIdResponse } from "./public-id-contract.js";
 import { isPublicIdOfType } from "./public-id.js";
 import type {
@@ -45,7 +52,7 @@ import type {
   AgentReportId,
   AgentReportSummary,
   AiAnalysisOutcome,
-  AnalyzeAiVisibilityInput,
+  AnalyzeBrandVisibilityInput,
   CompareAiPromptsInput,
   CreateAgentReportInput,
   ListAgentReportsOptions,
@@ -484,32 +491,32 @@ export class BisibilityClient {
   declare readonly listLocalMonitorPointHistory: LocalMonitorMethods["listLocalMonitorPointHistory"];
   declare readonly exportLocalMonitorRun: LocalMonitorMethods["exportLocalMonitorRun"];
 
-  declare readonly aiTrackingSuggestionsPreview: AiTrackingMethods["aiTrackingSuggestionsPreview"];
-  declare readonly aiTrackingSuggestionsGenerate: AiTrackingMethods["aiTrackingSuggestionsGenerate"];
-  declare readonly listAiTrackingTopics: AiTrackingMethods["listAiTrackingTopics"];
-  declare readonly createAiTrackingTopic: AiTrackingMethods["createAiTrackingTopic"];
-  declare readonly updateAiTrackingTopic: AiTrackingMethods["updateAiTrackingTopic"];
-  declare readonly archiveAiTrackingTopic: AiTrackingMethods["archiveAiTrackingTopic"];
-  declare readonly listAiTrackingPrompts: AiTrackingMethods["listAiTrackingPrompts"];
-  declare readonly createAiTrackingPrompt: AiTrackingMethods["createAiTrackingPrompt"];
-  declare readonly updateAiTrackingPrompt: AiTrackingMethods["updateAiTrackingPrompt"];
-  declare readonly archiveAiTrackingPrompt: AiTrackingMethods["archiveAiTrackingPrompt"];
-  declare readonly listAiTrackingSchedules: AiTrackingMethods["listAiTrackingSchedules"];
-  declare readonly createAiTrackingSchedule: AiTrackingMethods["createAiTrackingSchedule"];
-  declare readonly updateAiTrackingSchedule: AiTrackingMethods["updateAiTrackingSchedule"];
-  declare readonly archiveAiTrackingSchedule: AiTrackingMethods["archiveAiTrackingSchedule"];
-  declare readonly previewAiTrackingRun: AiTrackingMethods["previewAiTrackingRun"];
-  declare readonly createAiTrackingRun: AiTrackingMethods["createAiTrackingRun"];
-  declare readonly listAiTrackingRuns: AiTrackingMethods["listAiTrackingRuns"];
-  declare readonly getAiTrackingRun: AiTrackingMethods["getAiTrackingRun"];
-  declare readonly listAiTrackingSamples: AiTrackingMethods["listAiTrackingSamples"];
-  declare readonly cancelAiTrackingRun: AiTrackingMethods["cancelAiTrackingRun"];
-  declare readonly retryAiTrackingRun: AiTrackingMethods["retryAiTrackingRun"];
-  declare readonly getAiTrackingHistory: AiTrackingMethods["getAiTrackingHistory"];
-  declare readonly getAiTrackingTrends: AiTrackingMethods["getAiTrackingTrends"];
-  declare readonly exportAiTrackingEvidence: AiTrackingMethods["exportAiTrackingEvidence"];
-  declare readonly suggestAiTrackingPrompts: AiTrackingMethods["suggestAiTrackingPrompts"];
-  declare readonly acceptAiTrackingSuggestions: AiTrackingMethods["acceptAiTrackingSuggestions"];
+  declare readonly promptResearchSuggestionsPreview: PromptResearchSuggestionMethods["promptResearchSuggestionsPreview"];
+  declare readonly promptResearchSuggestionsGenerate: PromptResearchSuggestionMethods["promptResearchSuggestionsGenerate"];
+  declare readonly suggestPromptResearchPrompts: PromptResearchSuggestionMethods["suggestPromptResearchPrompts"];
+  declare readonly acceptPromptResearchSuggestions: PromptResearchSuggestionMethods["acceptPromptResearchSuggestions"];
+  declare readonly listPromptTrackerTopics: PromptTrackerMethods["listPromptTrackerTopics"];
+  declare readonly createPromptTrackerTopic: PromptTrackerMethods["createPromptTrackerTopic"];
+  declare readonly updatePromptTrackerTopic: PromptTrackerMethods["updatePromptTrackerTopic"];
+  declare readonly archivePromptTrackerTopic: PromptTrackerMethods["archivePromptTrackerTopic"];
+  declare readonly listPromptTrackerPrompts: PromptTrackerMethods["listPromptTrackerPrompts"];
+  declare readonly createPromptTrackerPrompt: PromptTrackerMethods["createPromptTrackerPrompt"];
+  declare readonly updatePromptTrackerPrompt: PromptTrackerMethods["updatePromptTrackerPrompt"];
+  declare readonly archivePromptTrackerPrompt: PromptTrackerMethods["archivePromptTrackerPrompt"];
+  declare readonly listPromptTrackerSchedules: PromptTrackerMethods["listPromptTrackerSchedules"];
+  declare readonly createPromptTrackerSchedule: PromptTrackerMethods["createPromptTrackerSchedule"];
+  declare readonly updatePromptTrackerSchedule: PromptTrackerMethods["updatePromptTrackerSchedule"];
+  declare readonly archivePromptTrackerSchedule: PromptTrackerMethods["archivePromptTrackerSchedule"];
+  declare readonly previewPromptTrackerRun: PromptTrackerMethods["previewPromptTrackerRun"];
+  declare readonly createPromptTrackerRun: PromptTrackerMethods["createPromptTrackerRun"];
+  declare readonly listPromptTrackerRuns: PromptTrackerMethods["listPromptTrackerRuns"];
+  declare readonly getPromptTrackerRun: PromptTrackerMethods["getPromptTrackerRun"];
+  declare readonly listPromptTrackerSamples: PromptTrackerMethods["listPromptTrackerSamples"];
+  declare readonly cancelPromptTrackerRun: PromptTrackerMethods["cancelPromptTrackerRun"];
+  declare readonly retryPromptTrackerRun: PromptTrackerMethods["retryPromptTrackerRun"];
+  declare readonly getPromptTrackerHistory: PromptTrackerMethods["getPromptTrackerHistory"];
+  declare readonly getPromptTrackerTrends: PromptTrackerMethods["getPromptTrackerTrends"];
+  declare readonly exportPromptTrackerEvidence: PromptTrackerMethods["exportPromptTrackerEvidence"];
 
   #apiVersionPreflight: Promise<void> | undefined;
   readonly #authorizationToken: string | undefined;
@@ -520,7 +527,7 @@ export class BisibilityClient {
   readonly #timeout: number | null | undefined;
   declare readonly agentReports: ClientResourceNamespaces["agentReports"];
   declare readonly projectContext: ClientResourceNamespaces["projectContext"];
-  declare readonly aiVisibility: ClientResourceNamespaces["aiVisibility"];
+  declare readonly brandVisibility: ClientResourceNamespaces["brandVisibility"];
   declare readonly promptExplorer: ClientResourceNamespaces["promptExplorer"];
   declare readonly siteAudits: ClientResourceNamespaces["siteAudits"];
   declare readonly account: ClientResourceNamespaces["account"];
@@ -566,7 +573,10 @@ export class BisibilityClient {
     this.#maxRetries = validatedMaxRetries(config.maxRetries);
     this.#projectId = config.projectId;
     this.#timeout = validatedTimeout(config.timeout);
-    installAiTrackingMethods(this, {
+    installPromptResearchSuggestionMethods(this, {
+      request: (method, path, options) => this.request(method, path, options),
+    });
+    installPromptTrackerMethods(this, {
       request: (method, path, options) => this.request(method, path, options),
     });
     installLocalMonitorMethods(this, {
@@ -1996,15 +2006,15 @@ export class BisibilityClient {
   }
 
   /** Paid requests require an explicit maximum cost; estimates do not start provider work.
-   * @deprecated Use `client.aiVisibility.analyze()`. */
-  analyzeAiVisibility(
+   * @deprecated Use `client.brandVisibility.analyze()`. */
+  analyzeBrandVisibility(
     projectId: ProjectId,
-    input: AnalyzeAiVisibilityInput,
+    input: AnalyzeBrandVisibilityInput,
     options?: RequestOptions,
   ) {
     return this.request<DataResponse<AiAnalysisOutcome>>(
       "POST",
-      `/projects/${encodedPathSegment(projectId)}/ai-visibility`,
+      `/projects/${encodedPathSegment(projectId)}/brand-visibility`,
       { ...options, body: input },
     );
   }

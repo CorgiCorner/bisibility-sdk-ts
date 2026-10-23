@@ -184,7 +184,7 @@ compatibility delegates until 1.0.
 | `account` | `get`, `update`, `delete`, plus `tokens.list`, `tokens.create`, `tokens.revoke`, `pushTokens.list`, `pushTokens.register`, `pushTokens.delete` |
 | `projectContext` | `get`, `update` |
 | `agentReports` | `list`, `create`, `get` |
-| `aiVisibility` | `analyze` |
+| `brandVisibility` | `analyze` |
 | `promptExplorer` | `compare` |
 | `siteAudits` | `list`, `run`, `get` |
 | `projects` | `list`, `create`, `get`, `update`, `delete`, `getDefaults`, `previewDefaults`, `updateDefaults` |
@@ -578,11 +578,11 @@ const budgets = await client.providers.budgets.list(projectId);
 await client.providers.budgets.update(projectId, "dataforseo", { own: { app: null }, credits: { programmatic: { amount_per_month: 500, unit: "cents" } } });
 ```
 
-## AI tracking
+## Prompt Tracker
 
-AI tracking methods manage project topics, immutable prompt revisions, disabled-by-default
-schedules, runs, samples, history, comparable trends, evidence exports, and editable prompt
-suggestions. Tracking resource IDs use `ait_`, `aip_`, `apr_`, `ais_`, `air_`, and `asm_`.
+Prompt Tracker methods manage project topics, immutable prompt revisions, disabled-by-default
+schedules, runs, samples, history, comparable trends, and evidence exports. Tracking resource
+IDs use `ait_`, `aip_`, `apr_`, `ais_`, `air_`, and `asm_`.
 Preview before launching paid work, pass the preview credential/budget/consent revisions, and
 provide explicit consent plus an `Idempotency-Key` for launch or retry. Preview never submits a
 provider task. Preserve the returned decimal USD strings, null amounts, unknown measurement
@@ -595,8 +595,12 @@ supports hard caps and explicitly consented provider actual-cost mode. Actual-co
 requires the estimate credential reference and a stable UUID. An advisory limit is not a
 guaranteed maximum charge.
 
-Model prompt generation uses `aiTrackingSuggestionsPreview` followed by
-`aiTrackingSuggestionsGenerate`. Review the complete context, selected competitors, model and
+## Prompt Research
+
+Prompt Research lists suggestions with `suggestPromptResearchPrompts` and accepts reviewed
+drafts with `acceptPromptResearchSuggestions`. Model prompt generation uses
+`promptResearchSuggestionsPreview` followed by `promptResearchSuggestionsGenerate`. Review the
+complete context, selected competitors, model and
 market before generation; the full serialized snapshot must fit within 5000 Unicode characters.
 Generation requires the complete unexpired preview, explicit paid consent and a stable UUID
 `idempotencyKey`. Forecasts are not guaranteed maximum costs. Accepted edits retain

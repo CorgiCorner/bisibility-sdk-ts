@@ -1,4 +1,3 @@
-import { type TrackingTransport, trackingId } from "./ai-tracking-transport.js";
 import type { BisibilityClient } from "./client.js";
 import { BisibilityConfigurationError } from "./errors.js";
 import type {
@@ -11,6 +10,7 @@ import type {
   LocalMonitorRunHistoryResponse,
   LocalMonitorRunResultResponse,
 } from "./local-monitors.js";
+import { type TrackingTransport, trackingId } from "./prompt-tracker-transport.js";
 import type {
   LocalMeasurementTargetId,
   LocalMonitorId,

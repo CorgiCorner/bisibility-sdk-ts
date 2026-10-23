@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.21.0 - 2026-10-23
+
+- **Breaking:** Rename AI Tracking to Prompt Tracker. Use `/projects/{project_id}/prompt-tracker/...` API paths, `PromptTracker*` types, and renamed methods such as `createPromptTrackerPrompt` and `exportPromptTrackerEvidence`. Old public names and API paths are removed.
+- **Breaking:** Move prompt suggestions, acceptance, preview, and model generation to Prompt Research. Use `/projects/{project_id}/prompt-research/suggestions[/accept|/preview|/generate]`, `PromptResearch*` suggestion types, and `suggestPromptResearchPrompts`, `acceptPromptResearchSuggestions`, `promptResearchSuggestionsPreview`, and `promptResearchSuggestionsGenerate`.
+- **Breaking:** Rename AI Visibility to Brand Visibility. Use `POST /projects/{project_id}/brand-visibility`, `analyzeBrandVisibility`, `brandVisibility`, and `AnalyzeBrandVisibilityInput`. Persisted capability `ai_tracking` and agent report kind `ai_visibility` are unchanged.
+
 ## 0.20.0 - 2026-10-23
 
 - Add Prompt Explorer engine mode: `engines` on `compareAiPrompts` / `promptExplorer.compare` (`chat_gpt`, `claude`, `gemini`, `perplexity`) runs each engine's calibrated flagship model on Credits under the hard cap. Result rows can carry `engine`, `requested_model` and `actual_model`, and estimates can report `pricing_policy: "measured_engines"`. Requires a server with engine mode.

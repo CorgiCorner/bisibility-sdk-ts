@@ -187,9 +187,9 @@ const cases = [
     resource: (c: BisibilityClient) => c.agentReports.get(projectId, reportId),
   },
   {
-    name: "analyzeAiVisibility",
+    name: "analyzeBrandVisibility",
     method: "POST",
-    route: "ai-visibility",
+    route: "brand-visibility",
     body: {
       ...aiInput,
       estimate_only: true,
@@ -202,7 +202,7 @@ const cases = [
     },
     response: { data: estimate },
     call: (c: BisibilityClient) =>
-      c.analyzeAiVisibility(projectId, {
+      c.analyzeBrandVisibility(projectId, {
         ...aiInput,
         estimate_only: true,
         platform: "google",
@@ -213,7 +213,7 @@ const cases = [
         fresh: false,
       }),
     resource: (c: BisibilityClient) =>
-      c.aiVisibility.analyze(projectId, {
+      c.brandVisibility.analyze(projectId, {
         ...aiInput,
         estimate_only: true,
         platform: "google",
@@ -367,7 +367,7 @@ describe("research workspace operations", () => {
         ).toThrow(/agr_/);
       }
     }
-    for (const route of ["ai-visibility", "prompt-explorer"]) {
+    for (const route of ["brand-visibility", "prompt-explorer"]) {
       for (const response of [null, {}, { data: null }, { data: { estimate: true } }]) {
         expect(() =>
           validatePublicIdResponse(`/projects/${projectId}/${route}`, response, "POST"),
@@ -438,7 +438,7 @@ describe("research workspace operations", () => {
       { ...analysis, result: { ...analysis.result, cost_status: "guessed" } },
     ]) {
       const { client } = clientWith({ data });
-      await expect(client.aiVisibility.analyze(projectId, aiInput)).rejects.toBeInstanceOf(
+      await expect(client.brandVisibility.analyze(projectId, aiInput)).rejects.toBeInstanceOf(
         BisibilityResponseError,
       );
     }

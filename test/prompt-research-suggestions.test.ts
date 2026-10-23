@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAiTrackingMethods } from "../src/ai-tracking-methods.js";
-import type { AiTrackingSuggestionsPreview } from "../src/ai-tracking-suggestions.js";
 import { BisibilityClient, BisibilityConfigurationError } from "../src/index.js";
+import { createPromptResearchSuggestionMethods } from "../src/prompt-research-suggestion-methods.js";
+import type { PromptResearchSuggestionsPreview } from "../src/prompt-research-suggestions.js";
+import { createPromptTrackerMethods } from "../src/prompt-tracker-methods.js";
 
 const project = "prj_abcdefghijklmnopqrstuvwx";
 const key = "11111111-1111-4111-8111-111111111111";
@@ -31,7 +32,7 @@ const input = {
     ],
   },
 };
-const preview: AiTrackingSuggestionsPreview = {
+const preview: PromptResearchSuggestionsPreview = {
   ...input,
   version: 1,
   snapshot_hash: "a".repeat(64),
@@ -52,35 +53,35 @@ describe("model suggestion client contract", () => {
     const request = vi.fn(async () => ({
       data: { items: [], run_id: "air_abcdefghijklmnopqrstuvwx", next_cursor: "resume", scope },
     }));
-    const client = createAiTrackingMethods({ request: request as never });
-    const result = await client.exportAiTrackingEvidence(project, {
+    const client = createPromptTrackerMethods({ request: request as never });
+    const result = await client.exportPromptTrackerEvidence(project, {
       run_id: "air_abcdefghijklmnopqrstuvwx",
     });
     expect(typeof result === "string" ? null : result.data.scope).toEqual(scope);
   });
   it("forwards the exact reviewed preview and header-only stable UUID", async () => {
     const request = vi.fn(async (..._args: unknown[]) => ({ data: {} }));
-    const client = createAiTrackingMethods({ request: request as never });
-    await client.aiTrackingSuggestionsPreview(project, input);
-    await client.aiTrackingSuggestionsGenerate(
+    const client = createPromptResearchSuggestionMethods({ request: request as never });
+    await client.promptResearchSuggestionsPreview(project, input);
+    await client.promptResearchSuggestionsGenerate(
       project,
       { preview, consent: true },
       { idempotencyKey: key },
     );
     expect(request.mock.calls).toEqual([
-      ["POST", `/projects/${project}/ai-tracking/suggestions/preview`, { body: input }],
+      ["POST", `/projects/${project}/prompt-research/suggestions/preview`, { body: input }],
       [
         "POST",
-        `/projects/${project}/ai-tracking/suggestions/generate`,
+        `/projects/${project}/prompt-research/suggestions/generate`,
         { idempotencyKey: key, body: { preview, consent: true } },
       ],
     ]);
   });
   it("rejects oversized review, duplicate competitors, fake provenance and missing consent before transport", () => {
     const request = vi.fn();
-    const client = createAiTrackingMethods({ request });
+    const client = createPromptResearchSuggestionMethods({ request });
     expect(() =>
-      client.aiTrackingSuggestionsPreview(project, {
+      client.promptResearchSuggestionsPreview(project, {
         ...input,
         input_snapshot: {
           ...input.input_snapshot,
@@ -89,7 +90,7 @@ describe("model suggestion client contract", () => {
       }),
     ).toThrow("5000");
     expect(() =>
-      client.aiTrackingSuggestionsPreview(project, {
+      client.promptResearchSuggestionsPreview(project, {
         ...input,
         input_snapshot: {
           ...input.input_snapshot,
@@ -97,23 +98,23 @@ describe("model suggestion client contract", () => {
         },
       }),
     ).toThrow("unique");
-    expect(() => client.aiTrackingSuggestionsGenerate(project, { preview, consent: true })).toThrow(
-      "UUID",
-    );
     expect(() =>
-      client.aiTrackingSuggestionsGenerate(project, { preview, consent: false } as never, {
+      client.promptResearchSuggestionsGenerate(project, { preview, consent: true }),
+    ).toThrow("UUID");
+    expect(() =>
+      client.promptResearchSuggestionsGenerate(project, { preview, consent: false } as never, {
         idempotencyKey: key,
       }),
     ).toThrow("consent");
     expect(() =>
-      client.acceptAiTrackingSuggestions(project, {
+      client.acceptPromptResearchSuggestions(project, {
         drafts: [
           { text: "Example?", category: "neutral", provenance: "model_generated_hypothesis" },
         ],
       }),
     ).toThrow("generation reference");
     expect(() =>
-      client.acceptAiTrackingSuggestions(project, {
+      client.acceptPromptResearchSuggestions(project, {
         drafts: [{ text: "Example?", category: "neutral", provenance: "provider_dataset" }],
       }),
     ).toThrow("report reference");
@@ -121,8 +122,8 @@ describe("model suggestion client contract", () => {
   });
   it("counts reviewed Unicode characters and preserves edited trusted references", async () => {
     const request = vi.fn(async (..._args: unknown[]) => ({ data: {} }));
-    const client = createAiTrackingMethods({ request: request as never });
-    await client.aiTrackingSuggestionsPreview(project, {
+    const client = createPromptResearchSuggestionMethods({ request: request as never });
+    await client.promptResearchSuggestionsPreview(project, {
       ...input,
       input_snapshot: {
         ...input.input_snapshot,
@@ -137,18 +138,18 @@ describe("model suggestion client contract", () => {
         draft_id: key,
       },
     };
-    await client.acceptAiTrackingSuggestions(project, { drafts: [draft] });
+    await client.acceptPromptResearchSuggestions(project, { drafts: [draft] });
     expect(request).toHaveBeenLastCalledWith(
       "POST",
-      `/projects/${project}/ai-tracking/suggestions/accept`,
+      `/projects/${project}/prompt-research/suggestions/accept`,
       { body: { drafts: [draft] } },
     );
   });
   it("validates trusted dataset rows and generation references before acceptance", async () => {
     const request = vi.fn(async (..._args: unknown[]) => ({ data: {} }));
-    const client = createAiTrackingMethods({ request: request as never });
+    const client = createPromptResearchSuggestionMethods({ request: request as never });
     expect(() =>
-      client.acceptAiTrackingSuggestions(project, {
+      client.acceptPromptResearchSuggestions(project, {
         drafts: [{ text: "Fake popularity?", category: "neutral", popularity: 100 } as never],
       }),
     ).toThrow("popularity");
@@ -161,13 +162,13 @@ describe("model suggestion client contract", () => {
         row_index: 0,
       },
     };
-    await client.acceptAiTrackingSuggestions(project, { drafts: [base] });
-    await client.aiTrackingSuggestionsPreview(project, {
+    await client.acceptPromptResearchSuggestions(project, { drafts: [base] });
+    await client.promptResearchSuggestionsPreview(project, {
       ...input,
       credential_connection_id: preview.credential_connection_id,
     });
     expect(() =>
-      client.acceptAiTrackingSuggestions(project, {
+      client.acceptPromptResearchSuggestions(project, {
         drafts: [
           {
             ...base,
@@ -177,7 +178,7 @@ describe("model suggestion client contract", () => {
       }),
     ).toThrow("nonnegative");
     expect(() =>
-      client.acceptAiTrackingSuggestions(project, {
+      client.acceptPromptResearchSuggestions(project, {
         drafts: [
           {
             ...base,
@@ -187,12 +188,12 @@ describe("model suggestion client contract", () => {
       }),
     ).toThrow("one trusted");
     expect(() =>
-      client.acceptAiTrackingSuggestions(project, {
+      client.acceptPromptResearchSuggestions(project, {
         drafts: [{ text: "Unverified?", category: "neutral", evidence_ids: ["fake"] }],
       }),
     ).toThrow("Evidence claims");
     expect(() =>
-      client.acceptAiTrackingSuggestions(project, {
+      client.acceptPromptResearchSuggestions(project, {
         drafts: [
           {
             text: "Model?",
@@ -206,7 +207,7 @@ describe("model suggestion client contract", () => {
       }),
     ).toThrow("UUID");
     expect(() =>
-      client.aiTrackingSuggestionsPreview(project, {
+      client.promptResearchSuggestionsPreview(project, {
         ...input,
         credential_connection_id: "air_abcdefghijklmnopqrstuvwx" as never,
       }),
@@ -239,7 +240,7 @@ describe("model suggestion client contract", () => {
     const client = new BisibilityClient({ apiKey: "bsb_key_test_x", fetch });
     expect(
       (
-        await client.aiTrackingSuggestionsGenerate(
+        await client.promptResearchSuggestionsGenerate(
           project,
           { preview, consent: true },
           { idempotencyKey: key },
@@ -248,7 +249,7 @@ describe("model suggestion client contract", () => {
     ).toEqual(result);
     result.generation_id = "air_abcdefghijklmnopqrstuvwx";
     await expect(
-      client.aiTrackingSuggestionsGenerate(
+      client.promptResearchSuggestionsGenerate(
         project,
         { preview, consent: true },
         { idempotencyKey: key },

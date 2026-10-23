@@ -49,7 +49,7 @@ export interface AiAnalysisInput {
   fresh?: boolean;
 }
 
-export interface AnalyzeAiVisibilityInput extends AiAnalysisInput {
+export interface AnalyzeBrandVisibilityInput extends AiAnalysisInput {
   platform?: "chat_gpt" | "google";
   target_type?: "brand" | "domain";
   language_code?: string;

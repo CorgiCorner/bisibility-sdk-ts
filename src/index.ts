@@ -392,9 +392,9 @@ export type * from "./reports-budgets.js";
 export type * from "./research-workspace.js";
 
 export type { AiResearchCatalog } from "./ai-research-catalog.js";
-export type * from "./ai-tracking.js";
+export type * from "./prompt-tracker.js";
 
-export type * from "./ai-tracking-suggestions.js";
+export type * from "./prompt-research-suggestions.js";
 
 export type * from "./rank-history-report.js";
 export type * from "./rank-history-report-metadata.js";
