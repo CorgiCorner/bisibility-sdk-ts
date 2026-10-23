@@ -8,7 +8,7 @@
 > [API reference](https://bisibility.com/docs/api/overview) ·
 > [Roadmap](https://bisibility.com/roadmap)
 >
-> SDK version: 0.19.0. Published versions are listed on [npm](https://www.npmjs.com/package/@bisibility/sdk).
+> SDK version: 0.20.0. Published versions are listed on [npm](https://www.npmjs.com/package/@bisibility/sdk).
 
 TypeScript SDK for the Bisibility REST API.
 
@@ -396,6 +396,37 @@ An estimate response includes `cached_count`, `fetched_count_estimate`, and
 
 Search volume, CPC, competition, difficulty, intent, and monthly trend values can be null when a
 provider market does not supply them.
+
+### Search query statistics
+
+`analytics.searchPerformance.list(projectId, options)` accepts required `startDate` and `endDate`
+(`Date` or string), plus `connectionId`, `limit` (1 to 1000), `query`, `queryMatch` (`equals` or
+`contains`), `pagePath`, `pagePathMatch` (`contains` or `prefix`), `clicksMin`, `impressionsMin`,
+`positionMax`, `country` (ISO 3166-1 alpha-3, for example `usa`), `device` (`desktop`, `mobile` or
+`tablet`), `dimensions`, and a nonnegative integer `offset`. Query matching defaults to exact.
+Date objects keep the SDK's ISO timestamp serialization; use `YYYY-MM-DD` strings for this route's
+date-only API contract.
+
+```ts
+const stats = await bisibility.analytics.searchPerformance.list(projectId, {
+  startDate: "2026-06-01",
+  endDate: "2026-06-30",
+  country: "usa",
+  device: "mobile",
+  dimensions: ["query", "device"],
+  offset: 0,
+  limit: 100
+});
+console.log(stats.rows, stats.result.next_offset, stats.scope.dimensions);
+```
+
+`dimensions` accepts a readonly array of `query`, `page`, `country`, and `device`, and must include
+`query`. The SDK joins it into one comma-separated `dimensions` parameter (`query%2Cdevice` in
+the URL). Setting `pagePath` also groups rows by page. Rows expose optional `page`, `country`,
+and `device`; `scope` records the applied filters and grouping. `result` reports `row_cap`,
+`rows_returned`, `truncated`, `sort`, and nullable `next_offset`. Metric filters apply after the
+source cap, so `truncated: false` or `next_offset: null` does not prove exhaustion with those filters.
+These additions require a compatible application API and are unreleased in the SDK.
 
 ### Project defaults
 

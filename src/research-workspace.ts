@@ -57,6 +57,9 @@ export interface AnalyzeAiVisibilityInput extends AiAnalysisInput {
   limit?: number;
 }
 
+/** AI response engines available in Prompt Explorer engine mode. */
+export type AiEngine = "chat_gpt" | "claude" | "gemini" | "perplexity";
+
 export interface CompareAiPromptsInput extends Omit<AiAnalysisInput, "max_cost_cents"> {
   max_cost_cents?: number;
   cost_policy?: "hard_cap" | "provider_actual_cost";
@@ -70,6 +73,11 @@ export interface CompareAiPromptsInput extends Omit<AiAnalysisInput, "max_cost_c
   max_output_tokens?: number;
   prompt: string;
   models?: string[];
+  /**
+   * Engine mode on Credits: each engine answers with its calibrated flagship model under the
+   * hard cap. Omit `models` and `max_output_tokens`; requires a server with engine mode.
+   */
+  engines?: AiEngine[];
 }
 
 export type AiEvidence = "observed_dataset" | "synthetic_prompt_test";
@@ -77,6 +85,10 @@ export type AiEvidence = "observed_dataset" | "synthetic_prompt_test";
 export interface AiAnalysisRow {
   prompt: string;
   model: string;
+  /** Engine that answered in engine mode. */
+  engine?: AiEngine;
+  requested_model?: string;
+  actual_model?: string | null;
   answer: string;
   observed_at: string | null;
   brand_mentioned: boolean;
@@ -107,7 +119,11 @@ export type AiAnalysisOutcome =
       credential_source?: "own" | "hosted";
       estimate_credentials_ref?: string;
       is_partial_estimate?: boolean;
-      pricing_policy?: "legacy_dated" | "current_catalog" | "provider_actual_cost";
+      pricing_policy?:
+        | "legacy_dated"
+        | "current_catalog"
+        | "provider_actual_cost"
+        | "measured_engines";
       pricing_checked_at?: string;
       forecast_exclusions?: string[];
       forecast_scope?: "tokens_and_base_only";

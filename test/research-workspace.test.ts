@@ -246,6 +246,27 @@ const cases = [
       }),
   },
   {
+    name: "compareAiPrompts engines",
+    method: "POST",
+    route: "prompt-explorer",
+    body: { ...aiInput, prompt: "Example?", engines: ["chat_gpt", "claude"], web_search: true },
+    response: { data: analysis },
+    call: (c: BisibilityClient) =>
+      c.compareAiPrompts(projectId, {
+        ...aiInput,
+        prompt: "Example?",
+        engines: ["chat_gpt", "claude"],
+        web_search: true,
+      }),
+    resource: (c: BisibilityClient) =>
+      c.promptExplorer.compare(projectId, {
+        ...aiInput,
+        prompt: "Example?",
+        engines: ["chat_gpt", "claude"],
+        web_search: true,
+      }),
+  },
+  {
     name: "listSiteAudits",
     method: "GET",
     route: "site-audits",

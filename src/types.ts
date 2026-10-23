@@ -1752,11 +1752,33 @@ export interface PageTrafficSnapshotsResponse {
   total_count: number;
 }
 
+export type SearchPerformanceDeviceInput = "desktop" | "mobile" | "tablet";
+export type SearchPerformanceDimensionInput = "query" | "page" | "country" | "device";
+export type SearchPerformancePagePathMatchInput = "contains" | "prefix";
+export type SearchPerformanceQueryMatchInput = "equals" | "contains";
+export type SearchPerformanceDimension = OpenString<SearchPerformanceDimensionInput>;
+export type SearchPerformanceQueryMatch = OpenString<SearchPerformanceQueryMatchInput>;
+export type SearchPerformanceSort = OpenString<"clicks_desc">;
+
 export interface ListSearchPerformanceQueryStatsOptions {
+  clicksMin?: number;
   connectionId?: ConnectionId;
+  /** ISO 3166-1 alpha-3 country code, for example usa. */
+  country?: string;
+  device?: SearchPerformanceDeviceInput;
+  /** Grouping dimensions. Must include query; pagePath also adds page grouping. */
+  dimensions?: readonly SearchPerformanceDimensionInput[];
   endDate: Date | string;
+  impressionsMin?: number;
+  /** Maximum rows per request, from 1 to 1000. */
   limit?: number;
+  /** Number of source rows to skip, a nonnegative integer. */
+  offset?: number;
+  pagePath?: string;
+  pagePathMatch?: SearchPerformancePagePathMatchInput;
+  positionMax?: number;
   query?: string;
+  queryMatch?: SearchPerformanceQueryMatchInput;
   startDate: Date | string;
 }
 
@@ -1768,16 +1790,41 @@ export interface AnalyticsConnection {
 
 export interface SearchPerformanceQueryStat {
   clicks: number;
+  country?: string;
   ctr: number;
+  device?: string;
   impressions: number;
   page?: string | null;
   position: number;
   query: string;
 }
 
+export interface SearchPerformanceQueryResult {
+  /** offset plus limit when truncated, otherwise null. Metric filters apply after the source cap. */
+  next_offset: number | null;
+  row_cap: number;
+  rows_returned: number;
+  sort: SearchPerformanceSort;
+  /** A false value does not prove exhaustion when metric filters are applied. */
+  truncated: boolean;
+}
+
+export interface SearchPerformanceQueryScope {
+  country: string | null;
+  device: string | null;
+  dimensions: SearchPerformanceDimension[];
+  end_date: string;
+  offset: number;
+  page_path: string | null;
+  query_match: SearchPerformanceQueryMatch;
+  start_date: string;
+}
+
 export interface SearchPerformanceQueryStatsResponse {
   connection: AnalyticsConnection;
+  result: SearchPerformanceQueryResult;
   rows: SearchPerformanceQueryStat[];
+  scope: SearchPerformanceQueryScope;
 }
 
 export type TrafficSyncRunStatus =

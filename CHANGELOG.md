@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.20.0 - 2026-10-23
+
+- Add Prompt Explorer engine mode: `engines` on `compareAiPrompts` / `promptExplorer.compare` (`chat_gpt`, `claude`, `gemini`, `perplexity`) runs each engine's calibrated flagship model on Credits under the hard cap. Result rows can carry `engine`, `requested_model` and `actual_model`, and estimates can report `pricing_policy: "measured_engines"`. Requires a server with engine mode.
+- Add search query statistics filters for query matching, page paths, metrics, country and device, grouping dimensions, offset pagination, and typed result and scope metadata.
+
 ## 0.19.0 - 2026-10-22
 
 - Forward `maxCostCents` and `estimateOnly` from `loadMoreBacklinkRows`, so the next page of backlink rows can be priced or capped before any provider request.

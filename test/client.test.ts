@@ -105,6 +105,30 @@ function textResponse(body: string, init: ResponseInit = {}) {
   });
 }
 
+function queryStatsResponse(): SearchPerformanceQueryStatsResponse {
+  return {
+    connection: { id: "conn_y00000000000000000000000", label: "Search Console", provider: "gsc" },
+    result: {
+      next_offset: null,
+      row_cap: 100,
+      rows_returned: 1,
+      sort: "clicks_desc",
+      truncated: false,
+    },
+    rows: [{ clicks: 14, ctr: 0.125, impressions: 112, position: 4.2, query: "rank tracker api" }],
+    scope: {
+      country: null,
+      device: null,
+      dimensions: ["query"],
+      end_date: "2026-06-30",
+      offset: 0,
+      page_path: null,
+      query_match: "equals",
+      start_date: "2026-06-01",
+    },
+  };
+}
+
 function list<T>(data: T[], nextCursor: string | null = null): ListResponse<T> {
   return { data, meta: { next_cursor: nextCursor } };
 }
@@ -2866,19 +2890,8 @@ describe("BisibilityClient protected resources", () => {
       ],
       total_count: 81,
     };
-    const queryStats: SearchPerformanceQueryStatsResponse = {
-      connection: { id: "conn_y00000000000000000000000", label: "Search Console", provider: "gsc" },
-      rows: [
-        {
-          clicks: 14,
-          ctr: 0.125,
-          impressions: 112,
-          page: "/pricing",
-          position: 4.2,
-          query: "rank tracker api",
-        },
-      ],
-    };
+    const queryStats = queryStatsResponse();
+    queryStats.rows = queryStats.rows.map((row) => ({ ...row, page: "/pricing" }));
     const sync: TrafficSyncSummary = {
       connections: 2,
       keyword_snapshots: 11,
@@ -2936,6 +2949,111 @@ describe("BisibilityClient protected resources", () => {
       "analytics-sync-001",
     );
     expect(fetchMock.mock.calls[2]?.[1]?.body).toBeUndefined();
+  });
+
+  it("lists query stats with every supported option as single snake_case parameters", async () => {
+    const body = queryStatsResponse();
+    body.rows = body.rows.map((row) => ({ ...row, device: "mobile", page: "/docs" }));
+    body.result = {
+      next_offset: 21,
+      row_cap: 1,
+      rows_returned: 1,
+      sort: "clicks_desc",
+      truncated: true,
+    };
+    body.scope = {
+      ...body.scope,
+      country: "usa",
+      device: "mobile",
+      dimensions: ["query", "page", "device"],
+      offset: 20,
+      page_path: "/docs",
+      query_match: "contains",
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+
+    await expect(
+      client.analytics.searchPerformance.list("prj_a00000000000000000000000", {
+        clicksMin: 0,
+        connectionId: "conn_y00000000000000000000000",
+        country: "usa",
+        device: "mobile",
+        dimensions: ["query", "device"] as const,
+        endDate: "2026-06-30",
+        impressionsMin: 100,
+        limit: 1,
+        offset: 20,
+        pagePath: "/docs",
+        pagePathMatch: "prefix",
+        positionMax: 4.5,
+        query: "rank tracker",
+        queryMatch: "contains",
+        startDate: "2026-06-01",
+      }),
+    ).resolves.toEqual(body);
+    expect(lastCall(fetchMock).url).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/analytics/query-stats?clicks_min=0&connection_id=conn_y00000000000000000000000&country=usa&device=mobile&dimensions=query%2Cdevice&end_date=2026-06-30&impressions_min=100&limit=1&offset=20&page_path=%2Fdocs&page_path_match=prefix&position_max=4.5&query=rank+tracker&query_match=contains&start_date=2026-06-01",
+    );
+    expect(lastCall(fetchMock).init?.method).toBe("GET");
+  });
+
+  it("lists query stats with dates only and preserves Date serialization", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(queryStatsResponse()));
+    await client.listSearchPerformanceQueryStats("prj_a00000000000000000000000", {
+      endDate: "2026-06-30",
+      startDate: new Date("2026-06-01T00:00:00.000Z"),
+    });
+    expect(lastCall(fetchMock).url).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/analytics/query-stats?end_date=2026-06-30&start_date=2026-06-01T00%3A00%3A00.000Z",
+    );
+  });
+
+  it("preserves zero-valued query stats filters and offsets", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(queryStatsResponse()));
+    await client.listSearchPerformanceQueryStats("prj_a00000000000000000000000", {
+      clicksMin: 0,
+      endDate: "2026-06-30",
+      impressionsMin: 0,
+      offset: 0,
+      positionMax: 0,
+      startDate: "2026-06-01",
+    });
+    expect(lastCall(fetchMock).url).toBe(
+      "https://api.test/api/v1/projects/prj_a00000000000000000000000/analytics/query-stats?clicks_min=0&end_date=2026-06-30&impressions_min=0&offset=0&position_max=0&start_date=2026-06-01",
+    );
+  });
+
+  it("accepts future query stats response enum values", async () => {
+    const body = queryStatsResponse();
+    body.result.sort = "future_sort";
+    body.scope.dimensions = ["query", "country", "future_dimension"];
+    body.scope.query_match = "future_match";
+    body.scope.device = "future_device";
+    body.rows = body.rows.map((row) => ({ ...row, country: "usa", device: "future_device" }));
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+    await expect(
+      client.listSearchPerformanceQueryStats("prj_a00000000000000000000000", {
+        endDate: "2026-06-30",
+        startDate: "2026-06-01",
+      }),
+    ).resolves.toEqual(body);
+  });
+
+  it.each([
+    { result: undefined },
+    { scope: undefined },
+    { result: { ...queryStatsResponse().result, next_offset: "100" } },
+    { scope: { ...queryStatsResponse().scope, offset: "0" } },
+    { rows: [{ ...queryStatsResponse().rows[0], country: null }] },
+    { rows: [{ ...queryStatsResponse().rows[0], device: 1 }] },
+  ])("rejects malformed query stats metadata or dimensions: %j", async (invalid) => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...queryStatsResponse(), ...invalid }));
+    await expect(
+      client.listSearchPerformanceQueryStats("prj_a00000000000000000000000", {
+        endDate: "2026-06-30",
+        startDate: "2026-06-01",
+      }),
+    ).rejects.toBeInstanceOf(BisibilityResponseError);
   });
 
   it("lists, creates, updates, deletes alert rules, and lists triggered alerts", async () => {
