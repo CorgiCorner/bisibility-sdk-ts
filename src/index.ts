@@ -244,6 +244,11 @@ export type {
   MigrationTokenId,
   MintMigrationTokenInput,
   NotificationPreferences,
+  NotificationPreferencesPatch,
+  NotificationPreferencesUpdated,
+  NotificationPreferenceWarning,
+  CheckNotificationSetting,
+  CheckNotificationSettingInput,
   NotificationId,
   OpenApiDocument,
   OwnKeyCapability,
@@ -292,6 +297,7 @@ export type {
   RankCheckId,
   RankCheckFrequency,
   RankCheckStatus,
+  ResultCompleteness,
   RankHistoryExportGranularity,
   RankHistoryExportRange,
   RankHistoryExportResponse,
@@ -401,7 +407,57 @@ export type * from "./rank-history-report-metadata.js";
 
 export type * from "./local-monitors.js";
 export type * from "./rank-check-runs.js";
+export type * from "./provider-evidence.js";
 export type * from "./defaults-review.js";
 export type { LocalMonitorId, LocalMonitorRunId, LocalMeasurementTargetId } from "./types.js";
 
 export type * from "./account-consent.js";
+
+export type {
+  SearchIndexInspection,
+  SearchIndexCrawledAs,
+  SearchIndexIndexingState,
+  SearchIndexPageFetchState,
+  SearchIndexRichResults,
+  SearchIndexDetectedItem,
+  SearchIndexIssueCount,
+  SearchIndexIssueSeverity,
+  SearchIndexRichResultsVerdict,
+  SearchIndexRobotsTxtState,
+  SearchIndexVerdict,
+  SearchIndexInspectionError,
+  SearchIndexInspectionErrorCode,
+  SearchIndexRateLimitScope,
+  SearchIndexInspectionInput,
+  SearchIndexInspections,
+  SearchIndexInspectionRow,
+  SearchIndexSitemap,
+  SearchIndexSitemapContent,
+  SearchIndexSitemapResponse,
+  SearchIndexSitemaps,
+} from "./search-index.js";
+export type { SearchIndexMethods } from "./search-index-methods.js";
+
+export type {
+  PageIndexingHistory,
+  PageIndexingChange,
+  PageIndexingReport,
+  PageIndexingBudgetMode,
+  PageIndexingGroup,
+  PageIndexingGroupKind,
+  PageIndexingReason,
+  PageIndexingRichResults,
+  PageIndexingSettings,
+  PageIndexingSettingsPatch,
+  PageIndexingBudgetModeInput,
+  PageIndexingTrackedState,
+  PageIndexingUrl,
+  PageIndexingSource,
+  PageIndexingUrls,
+  PageIndexingUrlsMeta,
+  PageIndexingGroupFilter,
+  PageIndexingSourceFilter,
+  PageIndexingHistoryFilter,
+  ListPageIndexingUrlsOptions,
+} from "./page-indexing.js";
+export type { PageIndexingMethods } from "./page-indexing-methods.js";

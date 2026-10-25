@@ -1,3 +1,4 @@
+import type { RankCheckRunEvidenceProjection } from "./provider-evidence.js";
 import type { ListResponse, PaginationOptions, ProjectId, RankCheckRunId } from "./types.js";
 
 export interface ListRankCheckRunsOptions extends PaginationOptions {
@@ -8,6 +9,7 @@ export interface ListRankCheckRunsOptions extends PaginationOptions {
 
 /** Retained execution state is readable even when no rank-check observation exists. */
 export interface RankCheckRunRead {
+  evidence_projections?: RankCheckRunEvidenceProjection[] | null;
   id: RankCheckRunId;
   project_id: ProjectId;
   /** Output status and classification fields tolerate future server values. */

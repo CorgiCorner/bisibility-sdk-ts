@@ -1,3 +1,4 @@
+import type { ProviderEvidenceProjection } from "./provider-evidence.js";
 import type { KeywordId, ListResponse, PaginationOptions, RankCheckId } from "./types.js";
 
 export type RankHistoryExportRange = "30" | "90" | "all";
@@ -5,6 +6,7 @@ export type RankHistoryExportRange = "30" | "90" | "all";
 export type RankHistoryExportGranularity = "daily" | "weekly";
 
 export interface RankHistoryExportRow {
+  evidence_projection?: ProviderEvidenceProjection | null;
   checked_at: string;
   id: RankCheckId;
   keyword: string;

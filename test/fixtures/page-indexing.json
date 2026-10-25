@@ -1,0 +1,166 @@
+{
+  "report": {
+    "property": "https://example.com/blog/",
+    "checked": 3,
+    "total": 8,
+    "complete": false,
+    "remaining": 5,
+    "oldest_result_at": "2026-10-24T12:00:00.000Z",
+    "newest_result_at": "2026-10-24T12:00:00.000Z",
+    "budget_mode": "fixed",
+    "today_count": 2,
+    "last429_kind": null,
+    "next_reset_at": "2026-10-25T07:00:00.000Z",
+    "discovery_complete": true,
+    "discovered_at": "2026-10-24T12:00:00.000Z",
+    "estimated_days_remaining": 3,
+    "groups": [
+      {
+        "group": "indexed",
+        "checked": 1,
+        "total": 1,
+        "complete": true,
+        "remaining": 0,
+        "oldest_result_at": "2026-10-24T12:00:00.000Z",
+        "newest_result_at": "2026-10-24T12:00:00.000Z",
+        "budget_mode": "fixed",
+        "today_count": 2,
+        "last429_kind": null,
+        "next_reset_at": "2026-10-25T07:00:00.000Z",
+        "reasons": [
+          {
+            "coverage_state": "Submitted and indexed",
+            "total": 1,
+            "oldest_result_at": "2026-10-24T12:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "group": "not_indexed",
+        "checked": 1,
+        "total": 1,
+        "complete": true,
+        "remaining": 0,
+        "oldest_result_at": "2026-10-24T12:00:00.000Z",
+        "newest_result_at": "2026-10-24T12:00:00.000Z",
+        "budget_mode": "fixed",
+        "today_count": 2,
+        "last429_kind": null,
+        "next_reset_at": "2026-10-25T07:00:00.000Z",
+        "reasons": [
+          {
+            "coverage_state": "Not found (404)",
+            "total": 1,
+            "oldest_result_at": "2026-10-24T12:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "group": "inspection_failed",
+        "checked": 1,
+        "total": 1,
+        "complete": true,
+        "remaining": 0,
+        "oldest_result_at": "2026-10-24T12:00:00.000Z",
+        "newest_result_at": "2026-10-24T12:00:00.000Z",
+        "budget_mode": "fixed",
+        "today_count": 2,
+        "last429_kind": null,
+        "next_reset_at": "2026-10-25T07:00:00.000Z",
+        "reasons": [
+          {
+            "coverage_state": null,
+            "total": 1,
+            "oldest_result_at": "2026-10-24T12:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "group": "not_checked",
+        "checked": 0,
+        "total": 5,
+        "complete": false,
+        "remaining": 5,
+        "oldest_result_at": null,
+        "newest_result_at": null,
+        "budget_mode": "fixed",
+        "today_count": 2,
+        "last429_kind": null,
+        "next_reset_at": "2026-10-25T07:00:00.000Z",
+        "reasons": [
+          {
+            "coverage_state": null,
+            "total": 5,
+            "oldest_result_at": null
+          }
+        ]
+      }
+    ]
+  },
+  "settings": {
+    "property": "https://example.com/blog/",
+    "budget_mode": "fixed",
+    "inspection_daily_limit": 2,
+    "available_modes": ["off", "fixed", "available_quota"],
+    "today_count": 2,
+    "last429_kind": null,
+    "last429_at": null,
+    "next_reset_at": "2026-10-25T07:00:00.000Z"
+  },
+  "urls": {
+    "data": [
+      {
+        "url": "https://example.com/blog/a",
+        "source": "sitemap",
+        "sitemap_url": "https://example.com/blog/sitemap.xml",
+        "verdict": "PASS",
+        "coverage_state": "Submitted and indexed",
+        "checked_at": "2026-10-24T12:00:00.000Z",
+        "created_at": "2026-10-24T12:00:00.000Z",
+        "updated_at": "2026-10-24T12:00:00.000Z",
+        "last_crawl_at": "2026-10-24T12:00:00.000Z",
+        "canonical_ok": true,
+        "google_canonical": "https://example.com/blog/a",
+        "user_canonical": null,
+        "indexing_state": "INDEXING_ALLOWED",
+        "robots_txt_state": "ALLOWED",
+        "page_fetch_state": "SUCCESSFUL",
+        "crawled_as": "MOBILE",
+        "referring_urls": [],
+        "sitemaps": [],
+        "rich_results_summary": null,
+        "inspection_result_link": null,
+        "inspection_error": null,
+        "inspection_failed_at": null,
+        "group": "indexed",
+        "history": {
+          "changes": [
+            {
+              "at": "2026-10-24T12:00:00.000Z",
+              "previous": {
+                "verdict": "FAIL",
+                "coverage_state": "Not indexed",
+                "google_canonical": null,
+                "indexing_state": null,
+                "robots_txt_state": null,
+                "page_fetch_state": null
+              },
+              "next": {
+                "verdict": "PASS",
+                "coverage_state": "Submitted and indexed",
+                "google_canonical": "https://example.com/blog/a",
+                "indexing_state": "INDEXING_ALLOWED",
+                "robots_txt_state": "ALLOWED",
+                "page_fetch_state": "SUCCESSFUL"
+              }
+            }
+          ],
+          "complete": true
+        }
+      }
+    ],
+    "meta": {
+      "next_cursor": "https://example.com/blog/a"
+    }
+  }
+}

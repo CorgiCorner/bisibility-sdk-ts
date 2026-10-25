@@ -7,7 +7,7 @@ export interface TrackingTransport {
     path: string,
     options?: RequestOptions & {
       body?: unknown;
-      query?: Record<string, string | number | undefined>;
+      query?: Record<string, Date | string | number | undefined>;
       parseAs?: "text" | "json";
     },
   ): Promise<T>;

@@ -446,6 +446,76 @@ The schedule fields (`frequency`, `cron_expression`, `jitter_minutes`, `timezone
 a whole. `serp_depth` (`10`, `20`, `50`, or `100`) and `serp_stop_on_match` are independent of the
 schedule: omitting either keeps its stored value.
 
+### Page indexing
+
+Use the flat `listSearchIndexSitemaps`, `getSearchIndexSitemap` and `inspectSearchIndexUrls`
+methods with a project that has a connected Search Console property. Pass a full sitemap URL to
+`getSearchIndexSitemap`; the SDK encodes it as one path segment. This is separate from sitemap
+monitors.
+
+```ts
+const sitemaps = await bisibility.listSearchIndexSitemaps(projectId);
+const sitemap = await bisibility.getSearchIndexSitemap(projectId, "https://example.com/sitemap.xml");
+const batch = await bisibility.inspectSearchIndexUrls(
+  projectId,
+  { urls: ["https://example.com/"] },
+  { idempotencyKey: "indexing-batch-001" }
+);
+for (const result of batch.results) {
+  if (result.error) console.log(result.url, result.error.code, result.error.reset_at);
+  else console.log(result.url, result.inspection);
+}
+```
+
+These reads return Google's indexed state as already known to Google, not a live test. Results
+may be partial or delayed. Only `inspectSearchIndexUrls` requests a new indexed state from Google
+and counts against the shared daily inspection allowance. Send 1-10 URLs and check each result's
+`error` even on HTTP 200. Reuse an `idempotencyKey` to replay the response without another inspection.
+
+Read stored results with `getPageIndexingReport`, `listPageIndexingUrls` and
+`getPageIndexingSettings`. These report, URL, history and settings reads never call Google.
+`updatePageIndexingSettings` changes background inspection settings without inspecting URLs.
+
+```ts
+const report = await bisibility.getPageIndexingReport(projectId);
+console.log(report.complete, report.remaining, report.discovery_complete);
+const page = await bisibility.listPageIndexingUrls(projectId, {
+  group: "not_indexed",
+  coverageState: "Not found (404)",
+  source: "sitemap",
+  history: "true",
+  changedSince: new Date("2026-10-24T12:00:00Z"),
+  limit: 50
+});
+console.log(page.data, page.meta.next_cursor);
+const settings = await bisibility.getPageIndexingSettings(projectId);
+await bisibility.updatePageIndexingSettings(
+  projectId,
+  { budget_mode: "fixed", inspection_daily_limit: 100 },
+  { idempotencyKey: "indexing-settings-001" }
+);
+for await (const url of bisibility.iteratePageIndexingUrls(projectId, { group: "indexed" })) {
+  console.log(url.url, url.checked_at);
+}
+```
+
+URL filters are `group`, `coverageState` (sent as `coverage_state`), `sitemap`, `source`, `search`,
+`changedSince` (sent as `changed_since`), `cursor`, `limit` (1-100), and `history` (`"true"` or
+`"false"`). Omitted filters are not sent. Use `changedSince` (a `Date` or RFC 3339 string) to
+include URLs with a stored tracked change at or after a timestamp, before pagination. A `Date` is
+sent as its ISO 8601 UTC string; an invalid `Date` throws before any request.
+Use `meta.next_cursor` unchanged for the next page, or use `iteratePageIndexingUrls`.
+Manual-only URLs require `source: "manual"` and do not affect report totals. Synthetic groups
+`inspection_failed` and `not_checked` use null coverage reasons; filter them by `group` alone.
+A report with `complete: false` is partial. Optional URL history includes up to 100 changes and
+its own `complete` flag. Both report and history can be partial or delayed.
+
+Settings patches require at least one of `budget_mode` or `inspection_daily_limit` (0-2000).
+Modes are `off`, `fixed`, and `available_quota`; `available_quota` is self-host only, and
+`settings.available_modes` reports deployment support. Manual and background inspections share
+the daily allowance and property counter, which reset at Pacific midnight. Usage is an estimate
+because other tools can consume Google's quota too.
+
 ### Sitemap monitors
 
 A project has one sitemap monitor whose ID is the project ID, so

@@ -22,6 +22,7 @@ import {
   isUnsupportedApiVersionProblem,
 } from "./errors.js";
 import { type LocalMonitorMethods, installLocalMonitorMethods } from "./local-monitor-methods.js";
+import { type PageIndexingMethods, installPageIndexingMethods } from "./page-indexing-methods.js";
 import { iterateCursorPagination } from "./pagination.js";
 import {
   type PromptResearchSuggestionMethods,
@@ -64,6 +65,7 @@ import type {
 import { type ClientResourceNamespaces, installResourceNamespaces } from "./resources.js";
 import { successContractData } from "./response-contract-data.js";
 import { validateSuccessResponse } from "./response-contract.js";
+import { type SearchIndexMethods, installSearchIndexMethods } from "./search-index-methods.js";
 import type {
   AddCompetitorInput,
   AlertId,
@@ -165,6 +167,7 @@ import type {
   MigrationTokenListResponse,
   MintMigrationTokenInput,
   NotificationPreferences,
+  NotificationPreferencesUpdated,
   OpenApiDocument,
   PageTrafficSnapshotsResponse,
   PaginationOptions,
@@ -485,6 +488,27 @@ function validateCredential(value: string | undefined) {
 }
 
 export class BisibilityClient {
+  /** Read stored Google indexed state, not a live test; may be partial. Never calls Google. */
+  declare readonly getPageIndexingReport: PageIndexingMethods["getPageIndexingReport"];
+  /** Read stored Google indexed state, not a live test; may be partial. Never calls Google. */
+  declare readonly listPageIndexingUrls: PageIndexingMethods["listPageIndexingUrls"];
+  /** Read stored Google indexed state, not a live test; may be partial. Never calls Google. */
+  declare readonly getPageIndexingSettings: PageIndexingMethods["getPageIndexingSettings"];
+  /** Update settings without calling Google.
+   * Stored results are Google's indexed state, not a live test, and may be partial. */
+  declare readonly updatePageIndexingSettings: PageIndexingMethods["updatePageIndexingSettings"];
+  /** Read stored Google indexed state, not a live test; may be partial. Never calls Google. */
+  declare readonly iteratePageIndexingUrls: PageIndexingMethods["iteratePageIndexingUrls"];
+
+  /** List sitemaps for Google's indexed state, not a live test; results may be partial. */
+  declare readonly listSearchIndexSitemaps: SearchIndexMethods["listSearchIndexSitemaps"];
+  /** Read one sitemap for Google's indexed state, not a live test; results may be partial.
+   * Pass its full URL. */
+  declare readonly getSearchIndexSitemap: SearchIndexMethods["getSearchIndexSitemap"];
+  /** Ask Google for its indexed state, not a live test; results may be partial.
+   * Uses the shared daily allowance; check each result's error. */
+  declare readonly inspectSearchIndexUrls: SearchIndexMethods["inspectSearchIndexUrls"];
+
   declare readonly listLocalMonitorRuns: LocalMonitorMethods["listLocalMonitorRuns"];
   declare readonly getLocalMonitorRunResults: LocalMonitorMethods["getLocalMonitorRunResults"];
   declare readonly listLocalMonitorPointListings: LocalMonitorMethods["listLocalMonitorPointListings"];
@@ -580,6 +604,12 @@ export class BisibilityClient {
       request: (method, path, options) => this.request(method, path, options),
     });
     installLocalMonitorMethods(this, {
+      request: (method, path, options) => this.request(method, path, options),
+    });
+    installSearchIndexMethods(this, {
+      request: (method, path, options) => this.request(method, path, options),
+    });
+    installPageIndexingMethods(this, {
       request: (method, path, options) => this.request(method, path, options),
     });
     installResourceNamespaces(this);
@@ -2155,6 +2185,7 @@ export class BisibilityClient {
    * while saving the connection: `0` promotes the provider and renumbers the fallback chain, and
    * an omitted priority keeps a reconnected provider's place while a new connection is appended
    * to the chain. The deprecated `primary: true` input is sent as `priority: 0`.
+   * A new SERP connection starts disabled unless no other SERP connection is enabled.
    *
    * Credentials are provider-specific. For Plausible, `credentials.login` is the site domain
    * configured in Plausible (its site_id, such as `example.com`) and defaults to the project
@@ -2457,7 +2488,7 @@ export class BisibilityClient {
     input: UpdateNotificationPreferencesInput,
     options?: RequestOptions,
   ) {
-    return this.request<NotificationPreferences>(
+    return this.request<NotificationPreferencesUpdated>(
       "PATCH",
       `/projects/${encodedPathSegment(projectId)}/notification-preferences`,
       { ...options, body: input },

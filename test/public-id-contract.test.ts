@@ -357,3 +357,33 @@ describe("public ID response schema", () => {
     ).rejects.toMatchObject({ name: "BisibilityResponseError" });
   });
 });
+
+describe("Page indexing request paths", () => {
+  it("validates the project while treating the encoded sitemap as one URL segment", () => {
+    const path = `/projects/${ids.prj}/search-index/sitemaps`;
+    expect(() => validatePublicIdRequest(path)).not.toThrow();
+    expect(() =>
+      validatePublicIdRequest(`${path}/https%3A%2F%2Fexample.com%2Fsitemap.xml`),
+    ).not.toThrow();
+    expect(() => validatePublicIdRequest(`${path}/https://example.com/sitemap.xml`)).toThrow(
+      "one path segment",
+    );
+    expect(() => validatePublicIdRequest("/projects/invalid/search-index/inspections")).toThrow(
+      "projectId",
+    );
+    expect(() =>
+      validatePublicIdRequest(`/projects/${ids.prj}/search-index/inspections`),
+    ).not.toThrow();
+  });
+});
+
+describe("stored Page indexing request paths", () => {
+  it.each(["report", "urls", "settings"])("validates the project for %s", (resource) => {
+    expect(() =>
+      validatePublicIdRequest(`/projects/${ids.prj}/search-index/${resource}`),
+    ).not.toThrow();
+    expect(() => validatePublicIdRequest(`/projects/invalid/search-index/${resource}`)).toThrow(
+      "projectId",
+    );
+  });
+});

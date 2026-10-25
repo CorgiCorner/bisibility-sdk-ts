@@ -435,13 +435,25 @@ function assertCloudImportNotificationPreference(value: unknown, label: string) 
     "alert_in_app",
     "check_email",
     "check_in_app",
+    "check_notification_setting",
+    "check_notification_top_n",
+    "check_notification_position_move",
+    "provider_incident_in_app",
     "import_email",
     "import_in_app",
     "invite_email",
     "invite_in_app",
     "report_email",
   ]);
-  for (const key of Object.keys(preference)) assertBoolean(preference[key], `${label}.${key}`);
+  for (const key of Object.keys(preference)) {
+    if (key === "check_notification_setting") {
+      assertEnum(preference[key], ["all", "important", "none"], `${label}.${key}`);
+    } else if (key === "check_notification_top_n" || key === "check_notification_position_move") {
+      assertInteger(preference[key], `${label}.${key}`, 1, 100);
+    } else {
+      assertBoolean(preference[key], `${label}.${key}`);
+    }
+  }
 }
 
 function assertCloudImportPackage(input: unknown) {
@@ -712,6 +724,14 @@ export function validatePublicIdRequest(path: string, contract: RequestContract 
 
   if (first === "projects" && second) {
     assertId(second, "prj", "projectId");
+  }
+  if (
+    first === "projects" &&
+    third === "search-index" &&
+    fourth === "sitemaps" &&
+    route.length > 5
+  ) {
+    throw new TypeError("Sitemap URL must be encoded as one path segment.");
   }
   if (first === "projects" && third === "local-monitors") {
     assertId(fourth, "lmn", "monitorId");

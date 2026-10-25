@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it, vi } from "vitest";
-import { BisibilityClient, BisibilityResponseError } from "../src/index.js";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import {
+  BisibilityClient,
+  BisibilityResponseError,
+  type ProviderEvidenceProjection,
+  type RankHistoryReportAttempt,
+  type RankHistoryReportObservation,
+} from "../src/index.js";
 
 const fixture: Record<string, unknown> = JSON.parse(
   readFileSync(new URL("./fixtures/rank-history-report.json", import.meta.url), "utf8"),
@@ -28,6 +34,50 @@ function clientFor(packet: unknown, requests: URL[]) {
 }
 
 describe("actual server export transport contract", () => {
+  it("types and validates nullable evidence on observations and logical attempts", async () => {
+    expectTypeOf<RankHistoryReportObservation["evidence_projection"]>().toEqualTypeOf<
+      ProviderEvidenceProjection | null | undefined
+    >();
+    expectTypeOf<RankHistoryReportAttempt["evidence_projection"]>().toEqualTypeOf<
+      ProviderEvidenceProjection | null | undefined
+    >();
+    const projection: ProviderEvidenceProjection = {
+      acceptance: null,
+      fulfillment: null,
+      returned_depth: null,
+      accounting: null,
+      result: null,
+      cost: null,
+      original_checked_at: null,
+      recovery: null,
+    };
+    const source = fixture.full_attempts as { data: Record<string, unknown>[]; meta: unknown };
+    const observations = fixture.observations as { data: Record<string, unknown>[] };
+    const rows = [
+      ...observations.data,
+      ...source.data.filter((row) => row.kind === "logical_rank_check"),
+    ];
+    expect(rows.some((row) => row.kind === "logical_rank_check")).toBe(true);
+    expect(rows.some((row) => "completeness" in row)).toBe(true);
+    for (const extra of [{}, { evidence_projection: null }, { evidence_projection: projection }]) {
+      const packet = { ...source, data: rows.map((row) => ({ ...row, ...extra })) };
+      expect(
+        await clientFor(packet, []).rankChecks.history.export(project, {
+          version: "2",
+          stream: "attempts",
+        }),
+      ).toEqual(packet);
+    }
+    for (const row of rows) {
+      await expect(
+        clientFor(
+          { ...source, data: [{ ...row, evidence_projection: {} }] },
+          [],
+        ).rankChecks.history.export(project, { version: "2", stream: "attempts" }),
+      ).rejects.toBeInstanceOf(BisibilityResponseError);
+    }
+  });
+
   it.each(["observations", "recorded", "attempts", "full_attempts"])(
     "retains every %s field, null, quality value and opaque cursor",
     async (stream) => {

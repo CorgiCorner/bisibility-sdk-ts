@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.22.0 - 2026-10-25
+
+- Add check-summary notification modes and thresholds, provider incident preferences, and typed update warnings; deprecate legacy `check_in_app` writes while preserving compatibility.
+- Expose retained provider evidence, returned depth, result completeness, and comparison restrictions on rank checks, runs, and history exports.
+- Document disabled-by-default SERP connections when another SERP connection is enabled.
+- Add stored Page indexing reports, filtered URL lists with history and cursor iteration, and inspection budget settings, including `changed_since` filtering and per-reason oldest result timestamps.
+
+- Add Page indexing sitemap reads and explicit URL inspection with typed per-URL results and idempotency support.
+
 ## 0.21.0 - 2026-10-23
 
 - **Breaking:** Rename AI Tracking to Prompt Tracker. Use `/projects/{project_id}/prompt-tracker/...` API paths, `PromptTracker*` types, and renamed methods such as `createPromptTrackerPrompt` and `exportPromptTrackerEvidence`. Old public names and API paths are removed.

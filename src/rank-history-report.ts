@@ -1,3 +1,4 @@
+import type { ProviderEvidenceProjection } from "./provider-evidence.js";
 import type { RankHistoryReportNormalizedItem } from "./rank-history-report-items.js";
 import type { RankHistoryReportMetadata } from "./rank-history-report-metadata.js";
 import type { RankHistoryReportRun, RankHistoryReportRunItem } from "./rank-history-report-runs.js";
@@ -24,6 +25,8 @@ export interface RankHistoryReportTimes {
   requested_at: string | null;
 }
 export interface RankHistoryReportObservation extends RankHistoryReportTimes {
+  /** Nullable on current servers; omitted by older servers. */
+  evidence_projection?: ProviderEvidenceProjection | null;
   comparison_digest: string | null;
   complete_through: number | null;
   completeness: string;
@@ -48,6 +51,8 @@ export interface RankHistoryReportObservation extends RankHistoryReportTimes {
   normalized_item_count: number;
 }
 export interface RankHistoryReportAttempt extends RankHistoryReportTimes {
+  /** Nullable on current servers; omitted by older servers. */
+  evidence_projection?: ProviderEvidenceProjection | null;
   deferred_reason: string | null;
   error_code: string | null;
   finished_at: string | null;

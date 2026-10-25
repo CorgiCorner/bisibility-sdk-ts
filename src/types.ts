@@ -1125,12 +1125,21 @@ export interface UpdateSitemapMonitorInput {
 
 export type RankCheckStatus = "completed" | "failed" | "running";
 
+export type ResultCompleteness = OpenString<"complete" | "partial" | "unresolved">;
+
 export interface RankCheckAttempt {
   message: string;
   provider: string;
 }
 
 export interface RankCheck {
+  /** Retained response projections do not replay historical rank comparisons. */
+  comparison_allowed?: false;
+  evidence_projection?: import("./provider-evidence.js").ProviderEvidenceProjection | null;
+  /** Partial or unresolved evidence never establishes a full-depth no-match. */
+  result_completeness?: ResultCompleteness;
+  /** Organic depth actually returned in retained evidence; null when unknown. */
+  returned_depth?: number | null;
   error_code?: string | null;
   usage?: {
     quantity: number | null;
@@ -1409,6 +1418,7 @@ export interface Provider {
   category_title: string;
   description: string;
   drawer: ProviderDrawer;
+  /** A new SERP connection starts disabled unless no other SERP connection is enabled. */
   enabled?: boolean;
   icon: ProviderIconName;
   id: OpenString<ProviderId>;
@@ -1416,6 +1426,7 @@ export interface Provider {
   meta: ProviderMetaRow[];
   name: string;
   primary?: boolean;
+  /** Lowest first; new SERP connections are placed after existing SERP connections. */
   priority?: number;
   secondary_action?: string;
   status: ProviderStatus;
@@ -1688,13 +1699,24 @@ export interface CompetitorListResponse extends ListResponse<Competitor> {
   meta: CompetitorListMeta;
 }
 
+export type CheckNotificationSettingInput = "all" | "important" | "none";
+export type CheckNotificationSetting = OpenString<CheckNotificationSettingInput>;
+
 export interface NotificationPreferences {
   alert_email: boolean;
   alert_in_app: boolean;
+  alert_push?: boolean;
   alert_slack: boolean;
   alert_webhook: boolean;
   check_email: boolean;
+  /** @deprecated Read-only compatibility value; ignored on writes with a warning. Use check_notification_setting. */
   check_in_app: boolean;
+  /** Check summaries; defaults to important. Absent on older servers. */
+  check_notification_setting?: CheckNotificationSetting;
+  /** Top-N entry or exit threshold, integer 1..100; default 10. */
+  check_notification_top_n?: number;
+  /** Inclusive position movement threshold, integer 1..100; default 5. */
+  check_notification_position_move?: number;
   email?: string;
   email_verification?: "unverified" | "verified";
   import_email: boolean;
@@ -1702,25 +1724,44 @@ export interface NotificationPreferences {
   invite_email: boolean;
   invite_in_app: boolean;
   project_id: ProjectId;
+  provider_incident_in_app?: boolean;
+  report_email?: boolean;
   slack_available?: boolean;
   webhook_available?: boolean;
 }
 
-export type UpdateNotificationPreferencesInput = Partial<
+export interface NotificationPreferenceWarning {
+  code: string;
+  field: string;
+  message: string;
+}
+
+export interface NotificationPreferencesUpdated extends NotificationPreferences {
+  /** Present when a deprecated check_in_app write was ignored. */
+  warnings?: NotificationPreferenceWarning[];
+}
+
+export type NotificationPreferencesPatch = Partial<
   Pick<
     NotificationPreferences,
     | "alert_email"
     | "alert_in_app"
+    | "alert_push"
     | "alert_slack"
     | "alert_webhook"
     | "check_email"
     | "check_in_app"
+    | "check_notification_top_n"
+    | "check_notification_position_move"
+    | "provider_incident_in_app"
     | "import_email"
     | "import_in_app"
     | "invite_email"
     | "invite_in_app"
   >
->;
+> & { check_notification_setting?: CheckNotificationSettingInput };
+
+export type UpdateNotificationPreferencesInput = NotificationPreferencesPatch;
 
 export interface ListTrafficSnapshotsOptions {
   endDate: Date | string;
@@ -2035,7 +2076,14 @@ export interface CloudImportNotificationPreference {
   alert_email?: boolean;
   alert_in_app?: boolean;
   check_email?: boolean;
+  /** @deprecated Preserved for portability; legacy rows import as Important regardless of this value. */
   check_in_app?: boolean;
+  check_notification_setting?: CheckNotificationSettingInput;
+  /** Integer 1..100. */
+  check_notification_top_n?: number;
+  /** Integer 1..100. */
+  check_notification_position_move?: number;
+  provider_incident_in_app?: boolean;
   import_email?: boolean;
   import_in_app?: boolean;
   invite_email?: boolean;
